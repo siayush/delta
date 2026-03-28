@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ApiRequest, ApiResponse, TabType } from '../types';
+import { curlToApiRequest } from '../utils/curlParser';
 import './RequestInterface.css';
 
 interface RequestInterfaceProps {
@@ -17,6 +18,8 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
   const [activeTab, setActiveTab] = useState<'headers' | 'params' | 'body'>('headers');
   const [isLoading, setIsLoading] = useState(false);
   const [localRequest, setLocalRequest] = useState<ApiRequest>(request);
+  const [showCurlImport, setShowCurlImport] = useState(false);
+  const [curlCommand, setCurlCommand] = useState('');
 
   useEffect(() => {
     setLocalRequest(request);
@@ -144,6 +147,33 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
     }
   };
 
+  const handleCurlImport = () => {
+    if (!curlCommand.trim()) {
+      alert('Please enter a cURL command');
+      return;
+    }
+
+    try {
+      const importedRequest = curlToApiRequest(curlCommand, localRequest.name);
+      const updatedRequest = {
+        ...localRequest,
+        ...importedRequest
+      };
+      setLocalRequest(updatedRequest);
+      onRequestUpdate(updatedRequest);
+      setCurlCommand('');
+      setShowCurlImport(false);
+    } catch (error) {
+      alert('Failed to parse cURL command. Please check the format and try again.');
+      console.error('cURL parsing error:', error);
+    }
+  };
+
+  const handleCurlCancel = () => {
+    setCurlCommand('');
+    setShowCurlImport(false);
+  };
+
   return (
     <div className="request-interface">
       <div className="request-header">
@@ -185,6 +215,14 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
           className="send-button"
         >
           {isLoading ? 'Sending...' : 'Send'}
+        </button>
+
+        <button
+          onClick={() => setShowCurlImport(true)}
+          className="curl-import-button"
+          title="Import from cURL"
+        >
+          Import cURL
         </button>
       </div>
 
@@ -240,6 +278,41 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
           )}
         </div>
       </div>
+
+      {showCurlImport && (
+        <div className="curl-import-modal">
+          <div className="curl-import-content">
+            <div className="curl-import-header">
+              <h3>Import from cURL</h3>
+              <button
+                onClick={handleCurlCancel}
+                className="curl-close-button"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="curl-import-body">
+              <p>Paste your cURL command below:</p>
+              <textarea
+                value={curlCommand}
+                onChange={(e) => setCurlCommand(e.target.value)}
+                className="curl-textarea"
+                placeholder={`curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{"key": "value"}'`}
+                rows={6}
+              />
+            </div>
+            <div className="curl-import-footer">
+              <button onClick={handleCurlCancel} className="curl-cancel-button">
+                Cancel
+              </button>
+              <button onClick={handleCurlImport} className="curl-import-confirm-button">
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
