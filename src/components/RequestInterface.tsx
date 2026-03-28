@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ApiRequest, ApiResponse, TabType } from '../types';
+import { ApiRequest, ApiResponse, Environment } from '../types';
 import { curlToApiRequest } from '../utils/curlParser';
+import { resolveUrl } from '../utils/environmentResolver';
 import './RequestInterface.css';
 
 interface RequestInterfaceProps {
   request: ApiRequest;
   onRequestUpdate: (request: ApiRequest) => void;
   onResponseReceived: (response: ApiResponse | null) => void;
+  activeEnvironment: Environment | null;
 }
 
 const RequestInterface: React.FC<RequestInterfaceProps> = ({
   request,
   onRequestUpdate,
-  onResponseReceived
+  onResponseReceived,
+  activeEnvironment,
 }) => {
   const [activeTab, setActiveTab] = useState<'headers' | 'params' | 'body'>('headers');
   const [isLoading, setIsLoading] = useState(false);
@@ -83,9 +86,10 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
     const startTime = Date.now();
 
     try {
+      const resolvedUrl = resolveUrl(buildUrl(), activeEnvironment);
       const config: any = {
         method: localRequest.method,
-        url: buildUrl(),
+        url: resolvedUrl,
         headers: {},
         timeout: 30000
       };
@@ -225,6 +229,15 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
           Import cURL
         </button>
       </div>
+
+      {activeEnvironment && localRequest.url && (
+        <div className="resolved-url-preview">
+          <span className="resolved-url-label" style={{ color: activeEnvironment.color }}>
+            {activeEnvironment.name}:
+          </span>
+          <span className="resolved-url-value">{resolveUrl(buildUrl(), activeEnvironment)}</span>
+        </div>
+      )}
 
       <div className="request-tabs">
         <div className="tab-headers">
@@ -378,7 +391,7 @@ const KeyValueEditor: React.FC<KeyValueEditorProps> = ({ data, onChange, placeho
 
   return (
     <div className="key-value-editor">
-      {pairs.map((pair, index) => (
+      {pairs.map((pair) => (
         <div key={pair.id} className="key-value-row">
           <input
             type="text"

@@ -1,0 +1,12 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: delta-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - delta-mongo-data:/data/db
+    restart: unless-stopped
+
+volumes:
+  delta-mongo-data:

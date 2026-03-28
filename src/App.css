@@ -23,18 +23,36 @@ body {
   color: white;
   padding: 1rem 2rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.app-header h1 {
+.app-header-left h1 {
   margin: 0;
   font-size: 1.8rem;
   font-weight: 600;
 }
 
-.app-header p {
+.app-header-left p {
   margin: 0.5rem 0 0 0;
   opacity: 0.9;
   font-size: 0.9rem;
+}
+
+.app-header-right {
+  display: flex;
+  align-items: center;
+}
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1;
+  color: #6c757d;
+  font-size: 1.1rem;
 }
 
 .app-content {

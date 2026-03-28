@@ -18,8 +18,12 @@ export interface ApiResponse {
 }
 
 export interface Snapshot {
+  id: string;
   requestId: string;
-  response: any;
+  environmentId?: string;
+  label?: string;
+  isBaseline: boolean;
+  response: ApiResponse;
   timestamp: number;
 }
 
@@ -29,9 +33,28 @@ export interface Folder {
   requests: string[];
 }
 
+export interface Environment {
+  id: string;
+  name: string;
+  baseUrl: string;
+  variables: Record<string, string>;
+  color: string;
+}
+
+export interface JsonDiffNode {
+  path: string;
+  type: 'added' | 'removed' | 'changed';
+  oldValue?: any;
+  newValue?: any;
+  children?: JsonDiffNode[];
+}
+
 export interface ComparisonResult {
   isMatch: boolean;
-  diff?: string;
+  statusChanged: boolean;
+  headersDiff: JsonDiffNode[];
+  bodyDiff: JsonDiffNode[];
+  summary: { added: number; removed: number; changed: number };
 }
 
 export interface TabType {

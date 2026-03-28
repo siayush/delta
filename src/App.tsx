@@ -1,139 +1,302 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
-import { ApiRequest, Folder, Snapshot } from './types';
+import { ApiRequest, ApiResponse, Folder, Snapshot, Environment } from './types';
 import Sidebar from './components/Sidebar';
 import RequestInterface from './components/RequestInterface';
 import ResponseViewer from './components/ResponseViewer';
-import { v4 as uuidv4 } from 'uuid';
+import EnvironmentManager from './components/EnvironmentManager';
+import * as api from './services/api';
 
 function App() {
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<ApiRequest | null>(null);
-  const [currentResponse, setCurrentResponse] = useState<any>(null);
+  const [currentResponse, setCurrentResponse] = useState<ApiResponse | null>(null);
+  const [requestSnapshots, setRequestSnapshots] = useState<Snapshot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load data from localStorage on component mount
+  const activeEnvironment = environments.find(e => e.id === activeEnvironmentId) || null;
+  const baseline = requestSnapshots.find(s => s.isBaseline);
+
+  // Debounced save for request updates
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load initial data
   useEffect(() => {
-    const savedRequests = localStorage.getItem('api-snapshot-requests');
-    const savedFolders = localStorage.getItem('api-snapshot-folders');
-    const savedSnapshots = localStorage.getItem('api-snapshot-snapshots');
+    console.log('[App] Starting initial data load...');
+    Promise.all([
+      api.fetchRequests(),
+      api.fetchFolders(),
+      api.fetchEnvironments(),
+    ])
+      .then(([reqs, folds, envs]) => {
+        console.log('[App] Data loaded:', { requests: reqs, folders: folds, environments: envs });
+        setRequests(reqs);
+        setFolders(folds);
+        setEnvironments(envs);
+      })
+      .catch(err => {
+        console.error('[App] Failed to load data:', err);
+        setError('Failed to connect to server. Make sure the backend is running on port 3000.');
+      })
+      .finally(() => {
+        console.log('[App] Loading complete');
+        setLoading(false);
+      });
+  }, []);
 
-    if (savedRequests) {
-      setRequests(JSON.parse(savedRequests));
-    }
-    if (savedFolders) {
-      setFolders(JSON.parse(savedFolders));
-    }
-    if (savedSnapshots) {
-      setSnapshots(JSON.parse(savedSnapshots));
+  // Load snapshots when active request changes
+  const loadSnapshots = useCallback(async (requestId: string) => {
+    try {
+      const snaps = await api.fetchSnapshots(requestId);
+      setRequestSnapshots(snaps);
+    } catch (err) {
+      console.error('Failed to load snapshots:', err);
+      setRequestSnapshots([]);
     }
   }, []);
 
-  // Save data to localStorage whenever state changes
   useEffect(() => {
-    localStorage.setItem('api-snapshot-requests', JSON.stringify(requests));
-  }, [requests]);
-
-  useEffect(() => {
-    localStorage.setItem('api-snapshot-folders', JSON.stringify(folders));
-  }, [folders]);
-
-  useEffect(() => {
-    localStorage.setItem('api-snapshot-snapshots', JSON.stringify(snapshots));
-  }, [snapshots]);
-
-  const createNewRequest = () => {
-    const newRequest: ApiRequest = {
-      id: uuidv4(),
-      name: 'New Request',
-      method: 'GET',
-      url: '',
-      headers: {},
-      queryParams: {},
-      body: ''
-    };
-    setRequests([...requests, newRequest]);
-    setActiveRequest(newRequest);
-  };
-
-  const updateRequest = (updatedRequest: ApiRequest) => {
-    setRequests(requests.map(req => 
-      req.id === updatedRequest.id ? updatedRequest : req
-    ));
-    setActiveRequest(updatedRequest);
-  };
-
-  const deleteRequest = (requestId: string) => {
-    setRequests(requests.filter(req => req.id !== requestId));
-    if (activeRequest?.id === requestId) {
-      setActiveRequest(null);
-      setCurrentResponse(null);
+    if (activeRequest) {
+      loadSnapshots(activeRequest.id);
+    } else {
+      setRequestSnapshots([]);
     }
-    // Also remove associated snapshots
-    setSnapshots(snapshots.filter(snap => snap.requestId !== requestId));
+  }, [activeRequest?.id, loadSnapshots]);
+
+  const createNewRequest = async () => {
+    console.log('[App] createNewRequest called');
+    try {
+      const newRequest = await api.createRequest({
+        name: 'New Request',
+        method: 'GET',
+        url: '',
+        headers: {},
+        queryParams: {},
+        body: ''
+      });
+      console.log('[App] Request created:', newRequest);
+      setRequests(prev => [newRequest, ...prev]);
+      setActiveRequest(newRequest);
+      setCurrentResponse(null);
+    } catch (err) {
+      console.error('[App] Failed to create request:', err);
+    }
   };
 
-  const createFolder = (name: string) => {
-    const newFolder: Folder = {
-      id: uuidv4(),
-      name,
-      requests: []
-    };
-    setFolders([...folders, newFolder]);
+  // Update request locally immediately, debounce the backend save
+  const updateRequest = (updatedRequest: ApiRequest) => {
+    setRequests(prev => prev.map(req => req.id === updatedRequest.id ? updatedRequest : req));
+    setActiveRequest(updatedRequest);
+
+    // Debounce backend save
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await api.updateRequest(updatedRequest.id, updatedRequest);
+      } catch (err) {
+        console.error('Failed to save request:', err);
+      }
+    }, 500);
   };
 
-  const deleteFolder = (folderId: string) => {
-    setFolders(folders.filter(folder => folder.id !== folderId));
-    // Remove folder reference from requests
-    setRequests(requests.map(req => 
-      req.folderId === folderId ? { ...req, folderId: undefined } : req
-    ));
+  const deleteRequest = async (requestId: string) => {
+    try {
+      await api.deleteRequest(requestId);
+      setRequests(prev => prev.filter(req => req.id !== requestId));
+      if (activeRequest?.id === requestId) {
+        setActiveRequest(null);
+        setCurrentResponse(null);
+        setRequestSnapshots([]);
+      }
+    } catch (err) {
+      console.error('Failed to delete request:', err);
+    }
   };
 
-  const moveRequestToFolder = (requestId: string, folderId?: string) => {
-    setRequests(requests.map(req => 
-      req.id === requestId ? { ...req, folderId } : req
-    ));
+  const createFolder = async (name: string) => {
+    try {
+      const newFolder = await api.createFolder(name);
+      setFolders(prev => [newFolder, ...prev]);
+    } catch (err) {
+      console.error('Failed to create folder:', err);
+    }
   };
 
-  const saveSnapshot = (requestId: string, response: any) => {
-    const newSnapshot: Snapshot = {
-      requestId,
-      response,
-      timestamp: Date.now()
-    };
-    setSnapshots(snapshots.filter(snap => snap.requestId !== requestId).concat(newSnapshot));
+  const deleteFolder = async (folderId: string) => {
+    try {
+      await api.deleteFolder(folderId);
+      setFolders(prev => prev.filter(f => f.id !== folderId));
+      setRequests(prev => prev.map(req =>
+        req.folderId === folderId ? { ...req, folderId: undefined } : req
+      ));
+    } catch (err) {
+      console.error('Failed to delete folder:', err);
+    }
   };
 
-  const clearSnapshot = (requestId: string) => {
-    setSnapshots(snapshots.filter(snap => snap.requestId !== requestId));
+  const moveRequestToFolder = async (requestId: string, folderId?: string) => {
+    try {
+      const saved = await api.updateRequest(requestId, { folderId } as Partial<ApiRequest>);
+      setRequests(prev => prev.map(req => req.id === requestId ? saved : req));
+    } catch (err) {
+      console.error('Failed to move request:', err);
+    }
   };
 
-  const getSnapshot = (requestId: string): Snapshot | undefined => {
-    return snapshots.find(snap => snap.requestId === requestId);
+  const saveSnapshot = async (label?: string, setAsBaseline?: boolean) => {
+    console.log('[App] saveSnapshot called', { hasResponse: !!currentResponse, hasActiveRequest: !!activeRequest, label, setAsBaseline });
+    if (!currentResponse || !activeRequest) {
+      console.warn('[App] saveSnapshot bailed: currentResponse=', !!currentResponse, 'activeRequest=', !!activeRequest);
+      return;
+    }
+    try {
+      const snapshot = await api.saveSnapshot({
+        requestId: activeRequest.id,
+        environmentId: activeEnvironmentId || undefined,
+        label,
+        isBaseline: setAsBaseline || false,
+        response: currentResponse,
+      });
+      if (setAsBaseline) {
+        setRequestSnapshots(prev =>
+          [snapshot, ...prev.map(s => ({ ...s, isBaseline: false }))]
+        );
+      } else {
+        setRequestSnapshots(prev => [snapshot, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to save snapshot:', err);
+    }
   };
+
+  const handleDeleteSnapshot = async (snapshotId: string) => {
+    try {
+      await api.deleteSnapshot(snapshotId);
+      setRequestSnapshots(prev => prev.filter(s => s.id !== snapshotId));
+    } catch (err) {
+      console.error('Failed to delete snapshot:', err);
+    }
+  };
+
+  const handleSetBaseline = async (snapshotId: string) => {
+    try {
+      const updated = await api.setBaseline(snapshotId);
+      setRequestSnapshots(prev =>
+        prev.map(s => s.id === snapshotId ? updated : { ...s, isBaseline: false })
+      );
+    } catch (err) {
+      console.error('Failed to set baseline:', err);
+    }
+  };
+
+  const handleCreateEnvironment = async (env: Omit<Environment, 'id'>) => {
+    try {
+      const created = await api.createEnvironment(env);
+      setEnvironments(prev => [...prev, created]);
+    } catch (err) {
+      console.error('Failed to create environment:', err);
+    }
+  };
+
+  const handleUpdateEnvironment = async (id: string, env: Partial<Environment>) => {
+    try {
+      const updated = await api.updateEnvironment(id, env);
+      setEnvironments(prev => prev.map(e => e.id === id ? updated : e));
+    } catch (err) {
+      console.error('Failed to update environment:', err);
+    }
+  };
+
+  const handleDeleteEnvironment = async (id: string) => {
+    try {
+      await api.deleteEnvironment(id);
+      setEnvironments(prev => prev.filter(e => e.id !== id));
+      if (activeEnvironmentId === id) setActiveEnvironmentId(null);
+    } catch (err) {
+      console.error('Failed to delete environment:', err);
+    }
+  };
+
+  console.log('[App] Render:', { loading, error, activeRequest: activeRequest?.id, requestCount: requests.length });
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="app-header">
+          <div className="app-header-left">
+            <h1>API Snapshot</h1>
+            <p>Regression testing tool for API developers</p>
+          </div>
+        </div>
+        <div className="app-content">
+          <div className="loading-screen">
+            <p>Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app">
+        <div className="app-header">
+          <div className="app-header-left">
+            <h1>API Snapshot</h1>
+            <p>Regression testing tool for API developers</p>
+          </div>
+        </div>
+        <div className="app-content">
+          <div className="loading-screen">
+            <p style={{ color: '#dc3545' }}>{error}</p>
+            <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
       <div className="app-header">
-        <h1>API Snapshot</h1>
-        <p>Regression testing tool for API developers</p>
+        <div className="app-header-left">
+          <h1>API Snapshot</h1>
+          <p>Regression testing tool for API developers</p>
+        </div>
+        <div className="app-header-right">
+          <EnvironmentManager
+            environments={environments}
+            activeEnvironmentId={activeEnvironmentId}
+            onSelectEnvironment={setActiveEnvironmentId}
+            onCreateEnvironment={handleCreateEnvironment}
+            onUpdateEnvironment={handleUpdateEnvironment}
+            onDeleteEnvironment={handleDeleteEnvironment}
+          />
+        </div>
       </div>
-      
+
       <div className="app-content">
         <Sidebar
           requests={requests}
           folders={folders}
           activeRequest={activeRequest}
-          onRequestSelect={setActiveRequest}
+          onRequestSelect={(req) => {
+            setActiveRequest(req);
+            setCurrentResponse(null);
+          }}
           onNewRequest={createNewRequest}
           onDeleteRequest={deleteRequest}
           onCreateFolder={createFolder}
           onDeleteFolder={deleteFolder}
           onMoveRequest={moveRequestToFolder}
         />
-        
+
         <div className="main-content">
           {activeRequest ? (
             <>
@@ -141,13 +304,17 @@ function App() {
                 request={activeRequest}
                 onRequestUpdate={updateRequest}
                 onResponseReceived={setCurrentResponse}
+                activeEnvironment={activeEnvironment}
               />
-              
+
               <ResponseViewer
                 response={currentResponse}
-                snapshot={getSnapshot(activeRequest.id)}
-                onSaveSnapshot={() => currentResponse && saveSnapshot(activeRequest.id, currentResponse)}
-                onClearSnapshot={() => clearSnapshot(activeRequest.id)}
+                snapshots={requestSnapshots}
+                baseline={baseline}
+                environments={environments}
+                onSaveSnapshot={saveSnapshot}
+                onDeleteSnapshot={handleDeleteSnapshot}
+                onSetBaseline={handleSetBaseline}
               />
             </>
           ) : (

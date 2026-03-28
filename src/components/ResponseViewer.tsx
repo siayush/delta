@@ -1,109 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import JsonView from '@uiw/react-json-view';
-import { ApiResponse, Snapshot, ComparisonResult } from '../types';
+import { ApiResponse, Snapshot, Environment, ComparisonResult } from '../types';
+import { computeDiff, diffSummary } from '../utils/jsonDiff';
+import JsonDiffViewer from './JsonDiffViewer';
+import SnapshotHistory from './SnapshotHistory';
 import './ResponseViewer.css';
 
 interface ResponseViewerProps {
   response: ApiResponse | null;
-  snapshot: Snapshot | undefined;
-  onSaveSnapshot: () => void;
-  onClearSnapshot: () => void;
+  snapshots: Snapshot[];
+  baseline: Snapshot | undefined;
+  environments: Environment[];
+  onSaveSnapshot: (label?: string, setAsBaseline?: boolean) => void;
+  onDeleteSnapshot: (id: string) => void;
+  onSetBaseline: (id: string) => void;
 }
 
 const ResponseViewer: React.FC<ResponseViewerProps> = ({
   response,
-  snapshot,
+  snapshots,
+  baseline,
+  environments,
   onSaveSnapshot,
-  onClearSnapshot
+  onDeleteSnapshot,
+  onSetBaseline,
 }) => {
-  const [activeTab, setActiveTab] = useState<'response' | 'diff'>('response');
-  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
+  const [activeTab, setActiveTab] = useState<'response' | 'diff' | 'history'>('response');
+  const [diffTarget, setDiffTarget] = useState<Snapshot | undefined>(undefined);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveLabel, setSaveLabel] = useState('');
+  const [saveAsBaseline, setSaveAsBaseline] = useState(false);
+  const [diffViewMode, setDiffViewMode] = useState<'inline' | 'side-by-side'>('inline');
 
+  // Default diff target is the baseline
   useEffect(() => {
-    if (response && snapshot) {
-      const result = compareResponses(snapshot.response.data, response.data);
-      setComparisonResult(result);
-      
-      // Switch to diff tab if there's a mismatch
-      if (!result.isMatch) {
-        setActiveTab('diff');
-      }
-    } else {
-      setComparisonResult(null);
-      setActiveTab('response');
-    }
-  }, [response, snapshot]);
+    setDiffTarget(baseline);
+  }, [baseline]);
 
-  const compareResponses = (snapshotData: any, currentData: any): ComparisonResult => {
-    const snapshotStr = JSON.stringify(snapshotData, null, 2);
-    const currentStr = JSON.stringify(currentData, null, 2);
-    
-    const isMatch = snapshotStr === currentStr;
-    
-    if (!isMatch) {
-      const diff = generateDiff(snapshotStr, currentStr);
-      return { isMatch: false, diff };
-    }
-    
-    return { isMatch: true };
-  };
+  // Compute comparison
+  const comparison: ComparisonResult | null = useMemo(() => {
+    if (!response || !diffTarget) return null;
 
-  const generateDiff = (original: string, modified: string): string => {
-    const originalLines = original.split('\n');
-    const modifiedLines = modified.split('\n');
-    
-    let diffHtml = '<div class="diff-container">';
-    diffHtml += '<div class="diff-side"><h4>Snapshot (Expected)</h4><pre>';
-    
-    // Simple line-by-line comparison
-    const maxLines = Math.max(originalLines.length, modifiedLines.length);
-    
-    for (let i = 0; i < maxLines; i++) {
-      const originalLine = originalLines[i] || '';
-      const modifiedLine = modifiedLines[i] || '';
-      
-      if (originalLine !== modifiedLine) {
-        if (originalLine && !modifiedLine) {
-          diffHtml += `<div class="diff-removed">${escapeHtml(originalLine)}</div>`;
-        } else if (!originalLine && modifiedLine) {
-          // This will be shown in the modified side
-        } else {
-          diffHtml += `<div class="diff-removed">${escapeHtml(originalLine)}</div>`;
-        }
-      } else {
-        diffHtml += `<div class="diff-unchanged">${escapeHtml(originalLine)}</div>`;
-      }
-    }
-    
-    diffHtml += '</pre></div>';
-    diffHtml += '<div class="diff-side"><h4>Current Response</h4><pre>';
-    
-    for (let i = 0; i < maxLines; i++) {
-      const originalLine = originalLines[i] || '';
-      const modifiedLine = modifiedLines[i] || '';
-      
-      if (originalLine !== modifiedLine) {
-        if (!originalLine && modifiedLine) {
-          diffHtml += `<div class="diff-added">${escapeHtml(modifiedLine)}</div>`;
-        } else if (originalLine && !modifiedLine) {
-          // This was shown in the original side
-        } else {
-          diffHtml += `<div class="diff-added">${escapeHtml(modifiedLine)}</div>`;
-        }
-      } else {
-        diffHtml += `<div class="diff-unchanged">${escapeHtml(modifiedLine)}</div>`;
-      }
-    }
-    
-    diffHtml += '</pre></div></div>';
-    return diffHtml;
-  };
+    const snapshotData = diffTarget.response;
+    const statusChanged = snapshotData.status !== response.status;
+    const headersDiff = computeDiff(snapshotData.headers, response.headers);
+    const bodyDiff = computeDiff(snapshotData.data, response.data);
+    const allDiffs = [...headersDiff, ...bodyDiff];
+    const isMatch = !statusChanged && allDiffs.length === 0;
 
-  const escapeHtml = (text: string): string => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  };
+    return {
+      isMatch,
+      statusChanged,
+      headersDiff,
+      bodyDiff,
+      summary: diffSummary(allDiffs),
+    };
+  }, [response, diffTarget]);
+
+  // Auto-switch to diff tab on mismatch
+  useEffect(() => {
+    if (comparison && !comparison.isMatch && response) {
+      setActiveTab('diff');
+    }
+  }, [comparison, response]);
 
   const getStatusColor = (status: number): string => {
     if (status >= 200 && status < 300) return '#28a745';
@@ -116,6 +75,13 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
   const formatResponseTime = (time: number): string => {
     if (time < 1000) return `${time}ms`;
     return `${(time / 1000).toFixed(2)}s`;
+  };
+
+  const handleSave = () => {
+    onSaveSnapshot(saveLabel || undefined, saveAsBaseline);
+    setShowSaveForm(false);
+    setSaveLabel('');
+    setSaveAsBaseline(false);
   };
 
   if (!response) {
@@ -133,7 +99,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
     <div className="response-viewer">
       <div className="response-header">
         <div className="response-status">
-          <span 
+          <span
             className="status-badge"
             style={{ backgroundColor: getStatusColor(response.status) }}
           >
@@ -145,34 +111,55 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
         </div>
 
         <div className="snapshot-controls">
-          {snapshot && comparisonResult && (
+          {comparison && diffTarget && (
             <div className="comparison-result">
-              {comparisonResult.isMatch ? (
-                <span className="match-indicator">✅ Match</span>
+              {comparison.isMatch ? (
+                <span className="match-indicator">Match</span>
               ) : (
-                <span className="mismatch-indicator">❌ Mismatch Detected</span>
+                <span className="mismatch-indicator">
+                  Mismatch ({comparison.summary.added} added, {comparison.summary.removed} removed, {comparison.summary.changed} changed)
+                </span>
               )}
             </div>
           )}
 
-          {snapshot ? (
-            <div className="snapshot-actions">
-              <span className="snapshot-info">
-                Snapshot saved {new Date(snapshot.timestamp).toLocaleString()}
-              </span>
-              <button onClick={onClearSnapshot} className="btn btn-sm btn-danger">
-                Clear Snapshot
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={onSaveSnapshot} 
+          <div className="save-snapshot-controls">
+            <button
+              onClick={() => onSaveSnapshot(undefined, false)}
               className="btn btn-sm btn-success"
-              disabled={response.status < 200 || response.status >= 300}
             >
-              Set as Snapshot
+              Save Snapshot
             </button>
-          )}
+            <button
+              onClick={() => onSaveSnapshot(undefined, true)}
+              className="btn btn-sm btn-primary"
+              title="Save and mark as baseline for comparison"
+            >
+              Save as Baseline
+            </button>
+            {!showSaveForm ? (
+              <button
+                onClick={() => setShowSaveForm(true)}
+                className="btn btn-sm btn-secondary"
+                title="Save with a custom label"
+              >
+                + Label
+              </button>
+            ) : (
+              <div className="save-snapshot-form">
+                <input
+                  type="text"
+                  value={saveLabel}
+                  onChange={e => setSaveLabel(e.target.value)}
+                  placeholder="Label"
+                  className="save-label-input"
+                  autoFocus
+                />
+                <button onClick={handleSave} className="btn btn-sm btn-success">Save</button>
+                <button onClick={() => setShowSaveForm(false)} className="btn btn-sm btn-secondary">x</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -184,14 +171,21 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
           >
             Response
           </button>
-          {comparisonResult && !comparisonResult.isMatch && (
-            <button
-              className={`tab-header ${activeTab === 'diff' ? 'active' : ''}`}
-              onClick={() => setActiveTab('diff')}
-            >
-              Diff
-            </button>
-          )}
+          <button
+            className={`tab-header ${activeTab === 'diff' ? 'active' : ''}`}
+            onClick={() => setActiveTab('diff')}
+          >
+            Diff
+            {comparison && !comparison.isMatch && (
+              <span className="diff-badge">!</span>
+            )}
+          </button>
+          <button
+            className={`tab-header ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveTab('history')}
+          >
+            History ({snapshots.length})
+          </button>
         </div>
 
         <div className="tab-content">
@@ -199,17 +193,21 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
             <div className="response-content">
               <div className="response-body">
                 <h4>Response Body</h4>
-                <div className="json-viewer">
-                  <JsonView 
-                    value={response.data} 
-                    style={{
-                      backgroundColor: '#f8f9fa',
-                      padding: '16px',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  />
-                </div>
+                {typeof response.data === 'object' && response.data !== null ? (
+                  <div className="json-viewer">
+                    <JsonView
+                      value={response.data}
+                      style={{
+                        backgroundColor: '#f8f9fa',
+                        padding: '16px',
+                        borderRadius: '4px',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <pre className="raw-response">{String(response.data)}</pre>
+                )}
               </div>
 
               <div className="response-headers">
@@ -226,12 +224,113 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
             </div>
           )}
 
-          {activeTab === 'diff' && comparisonResult && comparisonResult.diff && (
-            <div className="diff-viewer">
-              <div 
-                dangerouslySetInnerHTML={{ __html: comparisonResult.diff }}
-              />
+          {activeTab === 'diff' && (
+            <div className="diff-tab-content">
+              {snapshots.length > 0 && (
+                <div className="diff-target-selector">
+                  <label>Compare against:</label>
+                  <select
+                    value={diffTarget?.id || ''}
+                    onChange={e => {
+                      const snap = snapshots.find(s => s.id === e.target.value);
+                      setDiffTarget(snap);
+                    }}
+                  >
+                    <option value="">Select a snapshot</option>
+                    {snapshots.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.isBaseline ? '[Baseline] ' : ''}
+                        {s.label || new Date(s.timestamp).toLocaleString()}
+                        {' - '}
+                        {s.response.status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="diff-view-mode-toggle">
+                <button
+                  className={`diff-view-btn ${diffViewMode === 'inline' ? 'active' : ''}`}
+                  onClick={() => setDiffViewMode('inline')}
+                >
+                  Inline
+                </button>
+                <button
+                  className={`diff-view-btn ${diffViewMode === 'side-by-side' ? 'active' : ''}`}
+                  onClick={() => setDiffViewMode('side-by-side')}
+                >
+                  Side by Side
+                </button>
+              </div>
+
+              {comparison && diffTarget ? (
+                comparison.isMatch ? (
+                  <div className="diff-match-message">
+                    <p>Responses are identical.</p>
+                  </div>
+                ) : (
+                  <div className="diff-sections">
+                    {comparison.statusChanged && (
+                      <div className="diff-section">
+                        <h4>Status Code</h4>
+                        <div className="status-diff">
+                          <span className="status-old" style={{ backgroundColor: getStatusColor(diffTarget.response.status) }}>
+                            {diffTarget.response.status} {diffTarget.response.statusText}
+                          </span>
+                          <span className="status-arrow">&rarr;</span>
+                          <span className="status-new" style={{ backgroundColor: getStatusColor(response.status) }}>
+                            {response.status} {response.statusText}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {comparison.headersDiff.length > 0 && (
+                      <JsonDiffViewer
+                        nodes={comparison.headersDiff}
+                        title="Headers"
+                        oldData={diffTarget.response.headers}
+                        newData={response.headers}
+                        viewMode={diffViewMode}
+                      />
+                    )}
+
+                    {comparison.bodyDiff.length > 0 && (
+                      <JsonDiffViewer
+                        nodes={comparison.bodyDiff}
+                        title="Response Body"
+                        oldData={diffTarget.response.data}
+                        newData={response.data}
+                        viewMode={diffViewMode}
+                      />
+                    )}
+                  </div>
+                )
+              ) : (
+                <div className="diff-no-target">
+                  <p>
+                    {snapshots.length === 0
+                      ? 'No snapshots to compare against. Save a snapshot first.'
+                      : 'Select a snapshot above to compare.'}
+                  </p>
+                </div>
+              )}
             </div>
+          )}
+
+          {activeTab === 'history' && (
+            <SnapshotHistory
+              snapshots={snapshots}
+              environments={environments}
+              onSetBaseline={onSetBaseline}
+              onDeleteSnapshot={onDeleteSnapshot}
+              onSelectForDiff={(snap) => {
+                setDiffTarget(snap);
+                setActiveTab('diff');
+              }}
+              selectedDiffId={diffTarget?.id}
+            />
           )}
         </div>
       </div>

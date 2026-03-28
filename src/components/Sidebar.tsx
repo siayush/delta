@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteRequest,
   onCreateFolder,
   onDeleteFolder,
-  onMoveRequest
+  onMoveRequest: _onMoveRequest
 }) => {
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
