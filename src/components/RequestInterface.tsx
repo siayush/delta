@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { ApiRequest, ApiResponse, Environment } from '../types';
 import { curlToApiRequest } from '../utils/curlParser';
 import { resolveUrl } from '../utils/environmentResolver';
-import './RequestInterface.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Send, Import, Loader2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface RequestInterfaceProps {
   request: ApiRequest;
@@ -18,403 +26,227 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
   onResponseReceived,
   activeEnvironment,
 }) => {
-  const [activeTab, setActiveTab] = useState<'headers' | 'params' | 'body'>('headers');
   const [isLoading, setIsLoading] = useState(false);
   const [localRequest, setLocalRequest] = useState<ApiRequest>(request);
   const [showCurlImport, setShowCurlImport] = useState(false);
   const [curlCommand, setCurlCommand] = useState('');
 
-  useEffect(() => {
-    setLocalRequest(request);
-  }, [request]);
+  useEffect(() => { setLocalRequest(request); }, [request]);
 
   const updateLocalRequest = (updates: Partial<ApiRequest>) => {
-    const updatedRequest = { ...localRequest, ...updates };
-    setLocalRequest(updatedRequest);
-    onRequestUpdate(updatedRequest);
-  };
-
-  const handleNameChange = (name: string) => {
-    updateLocalRequest({ name });
-  };
-
-  const handleMethodChange = (method: ApiRequest['method']) => {
-    updateLocalRequest({ method });
-  };
-
-  const handleUrlChange = (url: string) => {
-    updateLocalRequest({ url });
-  };
-
-  const handleHeadersChange = (headers: Record<string, string>) => {
-    updateLocalRequest({ headers });
-  };
-
-  const handleQueryParamsChange = (queryParams: Record<string, string>) => {
-    updateLocalRequest({ queryParams });
-  };
-
-  const handleBodyChange = (body: string) => {
-    updateLocalRequest({ body });
+    const updated = { ...localRequest, ...updates };
+    setLocalRequest(updated);
+    onRequestUpdate(updated);
   };
 
   const buildUrl = () => {
     let url = localRequest.url;
     const params = new URLSearchParams();
-    
     Object.entries(localRequest.queryParams).forEach(([key, value]) => {
-      if (key.trim() && value.trim()) {
-        params.append(key, value);
-      }
+      if (key.trim() && value.trim()) params.append(key, value);
     });
-
-    const queryString = params.toString();
-    if (queryString) {
-      url += (url.includes('?') ? '&' : '?') + queryString;
-    }
-
+    const qs = params.toString();
+    if (qs) url += (url.includes('?') ? '&' : '?') + qs;
     return url;
   };
 
   const sendRequest = async () => {
-    if (!localRequest.url.trim()) {
-      alert('Please enter a URL');
-      return;
-    }
-
+    if (!localRequest.url.trim()) return;
     setIsLoading(true);
     const startTime = Date.now();
-
     try {
       const resolvedUrl = resolveUrl(buildUrl(), activeEnvironment);
-      const config: any = {
-        method: localRequest.method,
-        url: resolvedUrl,
-        headers: {},
-        timeout: 30000
-      };
-
-      // Add headers
+      const config: any = { method: localRequest.method, url: resolvedUrl, headers: {}, timeout: 30000 };
       Object.entries(localRequest.headers).forEach(([key, value]) => {
-        if (key.trim() && value.trim()) {
-          config.headers[key] = value;
-        }
+        if (key.trim() && value.trim()) config.headers[key] = value;
       });
-
-      // Add body for methods that support it
       if (['POST', 'PUT', 'PATCH'].includes(localRequest.method) && localRequest.body.trim()) {
-        try {
-          config.data = JSON.parse(localRequest.body);
-          config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json';
-        } catch (e) {
-          config.data = localRequest.body;
-          config.headers['Content-Type'] = config.headers['Content-Type'] || 'text/plain';
-        }
+        try { config.data = JSON.parse(localRequest.body); config.headers['Content-Type'] = config.headers['Content-Type'] || 'application/json'; }
+        catch { config.data = localRequest.body; config.headers['Content-Type'] = config.headers['Content-Type'] || 'text/plain'; }
       }
-
       const response = await axios(config);
-      const endTime = Date.now();
-
-      const apiResponse: ApiResponse = {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        headers: response.headers as Record<string, string>,
-        responseTime: endTime - startTime
-      };
-
-      onResponseReceived(apiResponse);
+      onResponseReceived({ status: response.status, statusText: response.statusText, data: response.data, headers: response.headers as Record<string, string>, responseTime: Date.now() - startTime });
     } catch (error: any) {
       const endTime = Date.now();
-      
       if (error.response) {
-        const apiResponse: ApiResponse = {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: error.response.data,
-          headers: error.response.headers as Record<string, string>,
-          responseTime: endTime - startTime
-        };
-        onResponseReceived(apiResponse);
+        onResponseReceived({ status: error.response.status, statusText: error.response.statusText, data: error.response.data, headers: error.response.headers as Record<string, string>, responseTime: endTime - startTime });
       } else {
-        const apiResponse: ApiResponse = {
-          status: 0,
-          statusText: error.message || 'Network Error',
-          data: { error: error.message || 'Request failed' },
-          headers: {},
-          responseTime: endTime - startTime
-        };
-        onResponseReceived(apiResponse);
+        onResponseReceived({ status: 0, statusText: error.message || 'Network Error', data: { error: error.message || 'Request failed' }, headers: {}, responseTime: endTime - startTime });
       }
-    } finally {
-      setIsLoading(false);
-    }
+    } finally { setIsLoading(false); }
   };
 
   const handleCurlImport = () => {
-    if (!curlCommand.trim()) {
-      alert('Please enter a cURL command');
-      return;
-    }
-
+    if (!curlCommand.trim()) return;
     try {
-      const importedRequest = curlToApiRequest(curlCommand, localRequest.name);
-      const updatedRequest = {
-        ...localRequest,
-        ...importedRequest
-      };
-      setLocalRequest(updatedRequest);
-      onRequestUpdate(updatedRequest);
+      const imported = curlToApiRequest(curlCommand, localRequest.name);
+      const updated = { ...localRequest, ...imported };
+      setLocalRequest(updated);
+      onRequestUpdate(updated);
       setCurlCommand('');
       setShowCurlImport(false);
-    } catch (error) {
-      alert('Failed to parse cURL command. Please check the format and try again.');
-      console.error('cURL parsing error:', error);
-    }
-  };
-
-  const handleCurlCancel = () => {
-    setCurlCommand('');
-    setShowCurlImport(false);
+    } catch { alert('Failed to parse cURL command.'); }
   };
 
   return (
-    <div className="request-interface">
-      <div className="request-header">
-        <input
-          type="text"
+    <div className="border-b">
+      {/* Request name */}
+      <div className="px-4 py-2 border-b bg-muted/30">
+        <Input
           value={localRequest.name}
-          onChange={(e) => handleNameChange(e.target.value)}
-          className="request-name-input"
+          onChange={(e) => updateLocalRequest({ name: e.target.value })}
+          className="border-0 shadow-none px-0 h-7 text-sm font-semibold bg-transparent focus-visible:ring-0"
           placeholder="Request name"
         />
       </div>
 
-      <div className="request-line">
-        <select
-          value={localRequest.method}
-          onChange={(e) => handleMethodChange(e.target.value as ApiRequest['method'])}
-          className="method-select"
-        >
-          <option value="GET">GET</option>
-          <option value="POST">POST</option>
-          <option value="PUT">PUT</option>
-          <option value="DELETE">DELETE</option>
-          <option value="PATCH">PATCH</option>
-          <option value="HEAD">HEAD</option>
-          <option value="OPTIONS">OPTIONS</option>
-        </select>
+      {/* URL bar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b">
+        <Select value={localRequest.method} onValueChange={(v) => updateLocalRequest({ method: v as ApiRequest['method'] })}>
+          <SelectTrigger className={cn('w-[110px] h-8 text-xs font-bold', localRequest.method === 'GET' ? 'text-emerald-600' : localRequest.method === 'POST' ? 'text-blue-600' : localRequest.method === 'DELETE' ? 'text-red-600' : 'text-amber-600')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].map(m => (
+              <SelectItem key={m} value={m} className="text-xs font-semibold">{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <input
-          type="text"
+        <Input
           value={localRequest.url}
-          onChange={(e) => handleUrlChange(e.target.value)}
-          className="url-input"
+          onChange={(e) => updateLocalRequest({ url: e.target.value })}
+          className="flex-1 h-8 font-mono text-xs"
           placeholder="Enter request URL"
         />
 
-        <button
-          onClick={sendRequest}
-          disabled={isLoading || !localRequest.url.trim()}
-          className="send-button"
-        >
-          {isLoading ? 'Sending...' : 'Send'}
-        </button>
+        <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={sendRequest} disabled={isLoading || !localRequest.url.trim()}>
+          {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Send</>}
+        </Button>
 
-        <button
-          onClick={() => setShowCurlImport(true)}
-          className="curl-import-button"
-          title="Import from cURL"
-        >
-          Import cURL
-        </button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowCurlImport(true)}>
+          <Import className="h-3.5 w-3.5 mr-1" /> cURL
+        </Button>
       </div>
 
+      {/* Resolved URL preview */}
       {activeEnvironment && localRequest.url && (
-        <div className="resolved-url-preview">
-          <span className="resolved-url-label" style={{ color: activeEnvironment.color }}>
-            {activeEnvironment.name}:
-          </span>
-          <span className="resolved-url-value">{resolveUrl(buildUrl(), activeEnvironment)}</span>
+        <div className="px-4 py-1 border-b bg-blue-50 flex items-center gap-2 text-xs">
+          <Badge variant="outline" className="text-[10px] h-4" style={{ borderColor: activeEnvironment.color, color: activeEnvironment.color }}>
+            {activeEnvironment.name}
+          </Badge>
+          <span className="font-mono text-muted-foreground truncate">{resolveUrl(buildUrl(), activeEnvironment)}</span>
         </div>
       )}
 
-      <div className="request-tabs">
-        <div className="tab-headers">
-          <button
-            className={`tab-header ${activeTab === 'headers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('headers')}
-          >
-            Headers ({Object.keys(localRequest.headers).length})
-          </button>
-          <button
-            className={`tab-header ${activeTab === 'params' ? 'active' : ''}`}
-            onClick={() => setActiveTab('params')}
-          >
-            Query Params ({Object.keys(localRequest.queryParams).length})
-          </button>
-          <button
-            className={`tab-header ${activeTab === 'body' ? 'active' : ''}`}
-            onClick={() => setActiveTab('body')}
-          >
-            Body
-          </button>
-        </div>
+      {/* Tabs: Headers, Params, Body */}
+      <Tabs defaultValue="headers" className="border-b">
+        <TabsList className="h-8 bg-muted/50 rounded-none border-b w-full justify-start px-4">
+          <TabsTrigger value="headers" className="text-xs h-7 data-[state=active]:shadow-none">
+            Headers {Object.keys(localRequest.headers).length > 0 && <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{Object.keys(localRequest.headers).length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="params" className="text-xs h-7 data-[state=active]:shadow-none">
+            Params {Object.keys(localRequest.queryParams).length > 0 && <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{Object.keys(localRequest.queryParams).length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="body" className="text-xs h-7 data-[state=active]:shadow-none">Body</TabsTrigger>
+        </TabsList>
 
-        <div className="tab-content">
-          {activeTab === 'headers' && (
-            <KeyValueEditor
-              data={localRequest.headers}
-              onChange={handleHeadersChange}
-              placeholder={{ key: 'Header name', value: 'Header value' }}
+        <div className="max-h-[200px] overflow-y-auto">
+          <TabsContent value="headers" className="m-0 p-3">
+            <KeyValueEditor data={localRequest.headers} onChange={(h) => updateLocalRequest({ headers: h })} keyPlaceholder="Header name" valuePlaceholder="Header value" />
+          </TabsContent>
+          <TabsContent value="params" className="m-0 p-3">
+            <KeyValueEditor data={localRequest.queryParams} onChange={(q) => updateLocalRequest({ queryParams: q })} keyPlaceholder="Param name" valuePlaceholder="Param value" />
+          </TabsContent>
+          <TabsContent value="body" className="m-0 p-3">
+            <Textarea
+              value={localRequest.body}
+              onChange={(e) => updateLocalRequest({ body: e.target.value })}
+              className="font-mono text-xs min-h-[120px] resize-y"
+              placeholder="Request body (JSON, XML, text...)"
             />
-          )}
-
-          {activeTab === 'params' && (
-            <KeyValueEditor
-              data={localRequest.queryParams}
-              onChange={handleQueryParamsChange}
-              placeholder={{ key: 'Parameter name', value: 'Parameter value' }}
-            />
-          )}
-
-          {activeTab === 'body' && (
-            <div className="body-editor">
-              <textarea
-                value={localRequest.body}
-                onChange={(e) => handleBodyChange(e.target.value)}
-                className="body-textarea"
-                placeholder="Request body (JSON, XML, text, etc.)"
-                rows={10}
-              />
-            </div>
-          )}
+          </TabsContent>
         </div>
-      </div>
+      </Tabs>
 
-      {showCurlImport && (
-        <div className="curl-import-modal">
-          <div className="curl-import-content">
-            <div className="curl-import-header">
-              <h3>Import from cURL</h3>
-              <button
-                onClick={handleCurlCancel}
-                className="curl-close-button"
-                title="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="curl-import-body">
-              <p>Paste your cURL command below:</p>
-              <textarea
-                value={curlCommand}
-                onChange={(e) => setCurlCommand(e.target.value)}
-                className="curl-textarea"
-                placeholder={`curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{"key": "value"}'`}
-                rows={6}
-              />
-            </div>
-            <div className="curl-import-footer">
-              <button onClick={handleCurlCancel} className="curl-cancel-button">
-                Cancel
-              </button>
-              <button onClick={handleCurlImport} className="curl-import-confirm-button">
-                Import
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* cURL Import Dialog */}
+      <Dialog open={showCurlImport} onOpenChange={setShowCurlImport}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import from cURL</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={curlCommand}
+            onChange={(e) => setCurlCommand(e.target.value)}
+            className="font-mono text-xs min-h-[120px]"
+            placeholder={`curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{"key": "value"}'`}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCurlCommand(''); setShowCurlImport(false); }}>Cancel</Button>
+            <Button onClick={handleCurlImport}>Import</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-interface KeyValueEditorProps {
+/* Key-Value pair editor */
+interface KVProps {
   data: Record<string, string>;
   onChange: (data: Record<string, string>) => void;
-  placeholder: { key: string; value: string };
+  keyPlaceholder: string;
+  valuePlaceholder: string;
 }
 
-const KeyValueEditor: React.FC<KeyValueEditorProps> = ({ data, onChange, placeholder }) => {
-  const [pairs, setPairs] = useState<Array<{ key: string; value: string; id: string }>>([]);
+const KeyValueEditor: React.FC<KVProps> = ({ data, onChange, keyPlaceholder, valuePlaceholder }) => {
+  const [pairs, setPairs] = useState<Array<{ key: string; value: string; id: string }>>(() => {
+    const p = Object.entries(data).map(([key, value], i) => ({ key, value, id: `${i}-${key}` }));
+    p.push({ key: '', value: '', id: `new-${Date.now()}` });
+    return p;
+  });
+  const internalUpdate = useRef(false);
 
   useEffect(() => {
-    const newPairs = Object.entries(data).map(([key, value], index) => ({
-      key,
-      value,
-      id: `${index}-${key}`
-    }));
-    // Always have one empty row at the end
-    newPairs.push({ key: '', value: '', id: `new-${Date.now()}` });
-    setPairs(newPairs);
+    if (internalUpdate.current) { internalUpdate.current = false; return; }
+    const p = Object.entries(data).map(([key, value], i) => ({ key, value, id: `${i}-${key}` }));
+    p.push({ key: '', value: '', id: `new-${Date.now()}` });
+    setPairs(p);
   }, [data]);
 
   const updatePair = (id: string, key: string, value: string) => {
-    const newPairs = pairs.map(pair => 
-      pair.id === id ? { ...pair, key, value } : pair
-    );
-
-    // Add new empty row if the last row is being edited
-    const lastPair = newPairs[newPairs.length - 1];
-    if (lastPair.key.trim() || lastPair.value.trim()) {
-      newPairs.push({ key: '', value: '', id: `new-${Date.now()}` });
-    }
-
+    const newPairs = pairs.map(p => p.id === id ? { ...p, key, value } : p);
+    const last = newPairs[newPairs.length - 1];
+    if (last.key.trim() || last.value.trim()) newPairs.push({ key: '', value: '', id: `new-${Date.now()}` });
     setPairs(newPairs);
-
-    // Update the data object
+    internalUpdate.current = true;
     const newData: Record<string, string> = {};
-    newPairs.forEach(pair => {
-      if (pair.key.trim() && pair.value.trim()) {
-        newData[pair.key] = pair.value;
-      }
-    });
+    newPairs.forEach(p => { if (p.key.trim() && p.value.trim()) newData[p.key] = p.value; });
     onChange(newData);
   };
 
   const removePair = (id: string) => {
-    const newPairs = pairs.filter(pair => pair.id !== id);
+    let newPairs = pairs.filter(p => p.id !== id);
     if (newPairs.length === 0 || newPairs[newPairs.length - 1].key.trim() || newPairs[newPairs.length - 1].value.trim()) {
       newPairs.push({ key: '', value: '', id: `new-${Date.now()}` });
     }
     setPairs(newPairs);
-
+    internalUpdate.current = true;
     const newData: Record<string, string> = {};
-    newPairs.forEach(pair => {
-      if (pair.key.trim() && pair.value.trim()) {
-        newData[pair.key] = pair.value;
-      }
-    });
+    newPairs.forEach(p => { if (p.key.trim() && p.value.trim()) newData[p.key] = p.value; });
     onChange(newData);
   };
 
   return (
-    <div className="key-value-editor">
+    <div className="space-y-1.5">
       {pairs.map((pair) => (
-        <div key={pair.id} className="key-value-row">
-          <input
-            type="text"
-            value={pair.key}
-            onChange={(e) => updatePair(pair.id, e.target.value, pair.value)}
-            placeholder={placeholder.key}
-            className="key-input"
-          />
-          <input
-            type="text"
-            value={pair.value}
-            onChange={(e) => updatePair(pair.id, pair.key, e.target.value)}
-            placeholder={placeholder.value}
-            className="value-input"
-          />
+        <div key={pair.id} className="flex items-center gap-1.5">
+          <Input value={pair.key} onChange={(e) => updatePair(pair.id, e.target.value, pair.value)} placeholder={keyPlaceholder} className="h-7 text-xs flex-1" />
+          <Input value={pair.value} onChange={(e) => updatePair(pair.id, pair.key, e.target.value)} placeholder={valuePlaceholder} className="h-7 text-xs flex-1" />
           {(pair.key.trim() || pair.value.trim()) && (
-            <button
-              onClick={() => removePair(pair.id)}
-              className="remove-button"
-              title="Remove"
-            >
-              ✕
-            </button>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removePair(pair.id)}>
+              <X className="h-3 w-3" />
+            </Button>
           )}
         </div>
       ))}

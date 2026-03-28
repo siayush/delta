@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ApiRequest, Folder } from '../types';
-import './Sidebar.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Plus, FolderPlus, Trash2, ChevronRight, ChevronDown, Check, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   requests: ApiRequest[];
@@ -14,6 +19,16 @@ interface SidebarProps {
   onMoveRequest: (requestId: string, folderId?: string) => void;
 }
 
+const METHOD_COLORS: Record<string, string> = {
+  GET: 'bg-emerald-500',
+  POST: 'bg-blue-500',
+  PUT: 'bg-amber-500',
+  DELETE: 'bg-red-500',
+  PATCH: 'bg-violet-500',
+  HEAD: 'bg-gray-500',
+  OPTIONS: 'bg-cyan-500',
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   requests,
   folders,
@@ -23,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onDeleteRequest,
   onCreateFolder,
   onDeleteFolder,
-  onMoveRequest: _onMoveRequest
+  onMoveRequest: _onMoveRequest,
 }) => {
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -38,173 +53,118 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const toggleFolder = (folderId: string) => {
-    const newExpanded = new Set(expandedFolders);
-    if (newExpanded.has(folderId)) {
-      newExpanded.delete(folderId);
-    } else {
-      newExpanded.add(folderId);
-    }
-    setExpandedFolders(newExpanded);
+    const next = new Set(expandedFolders);
+    if (next.has(folderId)) next.delete(folderId);
+    else next.add(folderId);
+    setExpandedFolders(next);
   };
 
-  const getRequestsInFolder = (folderId: string) => {
-    return requests.filter(req => req.folderId === folderId);
-  };
+  const getRequestsInFolder = (folderId: string) => requests.filter(req => req.folderId === folderId);
+  const getRequestsWithoutFolder = () => requests.filter(req => !req.folderId);
 
-  const getRequestsWithoutFolder = () => {
-    return requests.filter(req => !req.folderId);
-  };
-
-  const getMethodColor = (method: string) => {
-    const colors: Record<string, string> = {
-      GET: '#28a745',
-      POST: '#007bff',
-      PUT: '#ffc107',
-      DELETE: '#dc3545',
-      PATCH: '#6f42c1',
-      HEAD: '#6c757d',
-      OPTIONS: '#17a2b8'
-    };
-    return colors[method] || '#6c757d';
-  };
+  const RequestItem = ({ request }: { request: ApiRequest }) => (
+    <div
+      className={cn(
+        'group flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors text-sm',
+        activeRequest?.id === request.id
+          ? 'bg-accent text-accent-foreground'
+          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+      )}
+      onClick={() => onRequestSelect(request)}
+    >
+      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded text-white shrink-0 uppercase', METHOD_COLORS[request.method] || 'bg-gray-500')}>
+        {request.method}
+      </span>
+      <span className="truncate flex-1 text-xs">{request.name}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={(e) => { e.stopPropagation(); onDeleteRequest(request.id); }}
+      >
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  );
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-header">
-        <h3>Collections</h3>
-        <div className="sidebar-actions">
-          <button onClick={onNewRequest} className="btn btn-sm btn-primary" title="New Request">
-            + Request
-          </button>
-          <button 
-            onClick={() => setShowNewFolderInput(true)} 
-            className="btn btn-sm btn-secondary"
-            title="New Folder"
-          >
-            + Folder
-          </button>
+    <div className="w-72 bg-card border-r flex flex-col shrink-0">
+      <div className="p-3 border-b space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Collections</h3>
+        </div>
+        <div className="flex gap-1.5">
+          <Button size="sm" className="flex-1 h-7 text-xs" onClick={onNewRequest}>
+            <Plus className="h-3.5 w-3.5 mr-1" /> Request
+          </Button>
+          <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setShowNewFolderInput(true)}>
+            <FolderPlus className="h-3.5 w-3.5 mr-1" /> Folder
+          </Button>
         </div>
       </div>
 
       {showNewFolderInput && (
-        <div className="new-folder-input">
-          <input
-            type="text"
+        <div className="p-3 border-b flex items-center gap-1.5">
+          <Input
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             placeholder="Folder name"
-            onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+            className="h-7 text-xs"
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
             autoFocus
           />
-          <div className="input-actions">
-            <button onClick={handleCreateFolder} className="btn btn-xs btn-success">✓</button>
-            <button 
-              onClick={() => {
-                setShowNewFolderInput(false);
-                setNewFolderName('');
-              }} 
-              className="btn btn-xs btn-danger"
-            >
-              ✕
-            </button>
-          </div>
+          <Button size="icon" className="h-7 w-7 shrink-0" onClick={handleCreateFolder}>
+            <Check className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="icon" variant="outline" className="h-7 w-7 shrink-0" onClick={() => { setShowNewFolderInput(false); setNewFolderName(''); }}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
         </div>
       )}
 
-      <div className="sidebar-content">
-        {/* Folders */}
-        {folders.map(folder => (
-          <div key={folder.id} className="folder">
-            <div className="folder-header" onClick={() => toggleFolder(folder.id)}>
-              <span className={`folder-icon ${expandedFolders.has(folder.id) ? 'expanded' : ''}`}>
-                📁
-              </span>
-              <span className="folder-name">{folder.name}</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteFolder(folder.id);
-                }}
-                className="btn btn-xs btn-danger folder-delete"
-                title="Delete folder"
-              >
-                🗑️
-              </button>
-            </div>
-            
-            {expandedFolders.has(folder.id) && (
-              <div className="folder-requests">
-                {getRequestsInFolder(folder.id).map(request => (
-                  <div
-                    key={request.id}
-                    className={`request-item ${activeRequest?.id === request.id ? 'active' : ''}`}
-                    onClick={() => onRequestSelect(request)}
-                  >
-                    <span 
-                      className="method-badge"
-                      style={{ backgroundColor: getMethodColor(request.method) }}
-                    >
-                      {request.method}
-                    </span>
-                    <span className="request-name">{request.name}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteRequest(request.id);
-                      }}
-                      className="btn btn-xs btn-danger request-delete"
-                      title="Delete request"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* Requests without folder */}
-        {getRequestsWithoutFolder().length > 0 && (
-          <div className="ungrouped-requests">
-            <div className="section-header">Requests</div>
-            {getRequestsWithoutFolder().map(request => (
+      <ScrollArea className="flex-1">
+        <div className="p-2 space-y-0.5">
+          {folders.map(folder => (
+            <div key={folder.id}>
               <div
-                key={request.id}
-                className={`request-item ${activeRequest?.id === request.id ? 'active' : ''}`}
-                onClick={() => onRequestSelect(request)}
+                className="group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors"
+                onClick={() => toggleFolder(folder.id)}
               >
-                <span 
-                  className="method-badge"
-                  style={{ backgroundColor: getMethodColor(request.method) }}
+                {expandedFolders.has(folder.id) ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                <span className="text-xs font-medium flex-1 truncate">{folder.name}</span>
+                <Badge variant="secondary" className="text-[10px] h-4 px-1">{getRequestsInFolder(folder.id).length}</Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                  onClick={(e) => { e.stopPropagation(); onDeleteFolder(folder.id); }}
                 >
-                  {request.method}
-                </span>
-                <span className="request-name">{request.name}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteRequest(request.id);
-                  }}
-                  className="btn btn-xs btn-danger request-delete"
-                  title="Delete request"
-                >
-                  ✕
-                </button>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
               </div>
-            ))}
-          </div>
-        )}
+              {expandedFolders.has(folder.id) && (
+                <div className="ml-4 space-y-0.5">
+                  {getRequestsInFolder(folder.id).map(req => <RequestItem key={req.id} request={req} />)}
+                </div>
+              )}
+            </div>
+          ))}
 
-        {requests.length === 0 && (
-          <div className="empty-state">
-            <p>No requests yet</p>
-            <button onClick={onNewRequest} className="btn btn-primary">
-              Create your first request
-            </button>
-          </div>
-        )}
-      </div>
+          {getRequestsWithoutFolder().length > 0 && (
+            <>
+              {folders.length > 0 && <div className="px-2 pt-3 pb-1"><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requests</span></div>}
+              {getRequestsWithoutFolder().map(req => <RequestItem key={req.id} request={req} />)}
+            </>
+          )}
+
+          {requests.length === 0 && (
+            <div className="flex flex-col items-center py-8 text-center">
+              <p className="text-xs text-muted-foreground mb-3">No requests yet</p>
+              <Button size="sm" onClick={onNewRequest}>Create your first request</Button>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 };

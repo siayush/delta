@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Snapshot, Environment } from '../types';
-import './SnapshotHistory.css';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Star, Trash2, GitCompare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SnapshotHistoryProps {
   snapshots: Snapshot[];
@@ -12,39 +15,28 @@ interface SnapshotHistoryProps {
 }
 
 const SnapshotHistory: React.FC<SnapshotHistoryProps> = ({
-  snapshots,
-  environments,
-  onSetBaseline,
-  onDeleteSnapshot,
-  onSelectForDiff,
-  selectedDiffId,
+  snapshots, environments, onSetBaseline, onDeleteSnapshot, onSelectForDiff, selectedDiffId,
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const getEnv = (envId?: string) => environments.find(e => e.id === envId);
+  const formatDate = (ts: number) => new Date(ts).toLocaleString();
 
-  const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleString();
-  };
-
-  const getStatusColor = (status: number): string => {
-    if (status >= 200 && status < 300) return '#28a745';
-    if (status >= 300 && status < 400) return '#ffc107';
-    if (status >= 400 && status < 500) return '#fd7e14';
-    if (status >= 500) return '#dc3545';
-    return '#6c757d';
+  const getStatusColor = (status: number) => {
+    if (status >= 200 && status < 300) return 'bg-emerald-500';
+    if (status >= 300 && status < 400) return 'bg-amber-500';
+    if (status >= 400 && status < 500) return 'bg-orange-500';
+    return 'bg-red-500';
   };
 
   if (snapshots.length === 0) {
     return (
-      <div className="snapshot-history-empty">
-        <p>No snapshots saved yet. Send a request and save a snapshot to start tracking changes.</p>
+      <div className="flex flex-col items-center py-8 text-center">
+        <p className="text-sm text-muted-foreground">No snapshots yet. Send a request and save a snapshot to start tracking.</p>
       </div>
     );
   }
 
-  // Baseline first, then by timestamp desc
   const sorted = [...snapshots].sort((a, b) => {
     if (a.isBaseline && !b.isBaseline) return -1;
     if (!a.isBaseline && b.isBaseline) return 1;
@@ -52,7 +44,7 @@ const SnapshotHistory: React.FC<SnapshotHistoryProps> = ({
   });
 
   return (
-    <div className="snapshot-history">
+    <div className="space-y-1 p-3">
       {sorted.map(snap => {
         const env = getEnv(snap.environmentId);
         const isExpanded = expandedId === snap.id;
@@ -60,58 +52,55 @@ const SnapshotHistory: React.FC<SnapshotHistoryProps> = ({
         return (
           <div
             key={snap.id}
-            className={`snapshot-item ${snap.isBaseline ? 'is-baseline' : ''} ${selectedDiffId === snap.id ? 'selected-for-diff' : ''}`}
+            className={cn(
+              'rounded-lg border transition-colors',
+              snap.isBaseline && 'border-blue-300 bg-blue-50/50',
+              selectedDiffId === snap.id && 'border-orange-300 bg-orange-50/50',
+              !snap.isBaseline && selectedDiffId !== snap.id && 'hover:bg-muted/50'
+            )}
           >
-            <div className="snapshot-item-header" onClick={() => setExpandedId(isExpanded ? null : snap.id)}>
-              <div className="snapshot-item-left">
+            <div
+              className="flex items-center justify-between px-3 py-2 cursor-pointer gap-2"
+              onClick={() => setExpandedId(isExpanded ? null : snap.id)}
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                 <button
-                  className={`baseline-star ${snap.isBaseline ? 'active' : ''}`}
+                  className={cn('text-sm transition-colors', snap.isBaseline ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-400')}
                   onClick={(e) => { e.stopPropagation(); onSetBaseline(snap.id); }}
                   title={snap.isBaseline ? 'Current baseline' : 'Set as baseline'}
                 >
-                  {snap.isBaseline ? '\u2605' : '\u2606'}
+                  <Star className={cn('h-4 w-4', snap.isBaseline && 'fill-current')} />
                 </button>
-                <span
-                  className="snapshot-status"
-                  style={{ backgroundColor: getStatusColor(snap.response.status) }}
-                >
+                <Badge className={cn('text-[10px] px-1.5 py-0 text-white', getStatusColor(snap.response.status))}>
                   {snap.response.status}
-                </span>
+                </Badge>
                 {env && (
-                  <span className="snapshot-env" style={{ borderColor: env.color, color: env.color }}>
+                  <Badge variant="outline" className="text-[10px] h-4 px-1" style={{ borderColor: env.color, color: env.color }}>
                     {env.name}
-                  </span>
+                  </Badge>
                 )}
-                {snap.label && <span className="snapshot-label">{snap.label}</span>}
+                {snap.label && <span className="text-xs italic text-muted-foreground truncate">{snap.label}</span>}
+                {snap.isBaseline && <Badge className="text-[10px] h-4 bg-blue-100 text-blue-700 hover:bg-blue-100">Baseline</Badge>}
               </div>
-              <div className="snapshot-item-right">
-                <span className="snapshot-time">{formatDate(snap.timestamp)}</span>
-                <span className="snapshot-response-time">{snap.response.responseTime}ms</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[11px] text-muted-foreground">{formatDate(snap.timestamp)}</span>
+                <span className="text-[10px] text-muted-foreground/60 font-mono">{snap.response.responseTime}ms</span>
               </div>
             </div>
 
             {isExpanded && (
-              <div className="snapshot-item-actions">
-                <button
-                  className="btn btn-xs btn-primary"
-                  onClick={() => onSelectForDiff(snap)}
-                >
-                  {selectedDiffId === snap.id ? 'Selected for Diff' : 'Compare'}
-                </button>
+              <div className="flex gap-1.5 px-3 pb-2 border-t pt-2">
+                <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={() => onSelectForDiff(snap)}>
+                  <GitCompare className="h-3 w-3 mr-1" /> Compare
+                </Button>
                 {!snap.isBaseline && (
-                  <button
-                    className="btn btn-xs btn-secondary"
-                    onClick={() => onSetBaseline(snap.id)}
-                  >
-                    Set as Baseline
-                  </button>
+                  <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={() => onSetBaseline(snap.id)}>
+                    <Star className="h-3 w-3 mr-1" /> Set Baseline
+                  </Button>
                 )}
-                <button
-                  className="btn btn-xs btn-danger"
-                  onClick={() => onDeleteSnapshot(snap.id)}
-                >
-                  Delete
-                </button>
+                <Button size="sm" variant="outline" className="h-6 text-[11px] text-destructive hover:text-destructive" onClick={() => onDeleteSnapshot(snap.id)}>
+                  <Trash2 className="h-3 w-3 mr-1" /> Delete
+                </Button>
               </div>
             )}
           </div>
