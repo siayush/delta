@@ -67,8 +67,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       className={cn(
         'group flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer transition-colors text-sm',
         activeRequest?.id === request.id
-          ? 'bg-accent text-accent-foreground'
-          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+          ? 'bg-primary/15 text-foreground border border-primary/20'
+          : 'hover:bg-muted text-foreground/80 hover:text-foreground'
       )}
       onClick={() => onRequestSelect(request)}
     >

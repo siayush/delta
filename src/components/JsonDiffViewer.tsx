@@ -67,15 +67,15 @@ const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ nodes, title, oldData, 
           {!collapsed.has(node.path) && (
             <div className="pl-9 pr-3 pb-2 space-y-1">
               {(node.type === 'changed' || node.type === 'removed') && (
-                <div className="flex gap-2 bg-red-50 rounded px-2 py-1">
-                  <span className="text-red-500 font-mono text-xs font-bold shrink-0">-</span>
-                  <pre className="text-xs font-mono text-red-700 whitespace-pre-wrap break-all m-0">{formatValue(node.oldValue)}</pre>
+                <div className="flex gap-2 bg-red-50 dark:bg-red-950/40 rounded px-2 py-1">
+                  <span className="text-red-500 dark:text-red-400 font-mono text-xs font-bold shrink-0">-</span>
+                  <pre className="text-xs font-mono text-red-700 dark:text-red-300 whitespace-pre-wrap break-all m-0">{formatValue(node.oldValue)}</pre>
                 </div>
               )}
               {(node.type === 'changed' || node.type === 'added') && (
-                <div className="flex gap-2 bg-emerald-50 rounded px-2 py-1">
-                  <span className="text-emerald-500 font-mono text-xs font-bold shrink-0">+</span>
-                  <pre className="text-xs font-mono text-emerald-700 whitespace-pre-wrap break-all m-0">{formatValue(node.newValue)}</pre>
+                <div className="flex gap-2 bg-emerald-50 dark:bg-emerald-950/40 rounded px-2 py-1">
+                  <span className="text-emerald-500 dark:text-emerald-400 font-mono text-xs font-bold shrink-0">+</span>
+                  <pre className="text-xs font-mono text-emerald-700 dark:text-emerald-300 whitespace-pre-wrap break-all m-0">{formatValue(node.newValue)}</pre>
                 </div>
               )}
             </div>
@@ -91,8 +91,8 @@ const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ nodes, title, oldData, 
     return (
       <div className="max-h-[500px] overflow-auto">
         <div className="flex sticky top-0 z-10 border-b-2 border-border">
-          <div className="flex-1 px-3 py-1.5 text-[11px] font-bold bg-red-50 text-red-700 border-r-2 border-border pl-10">Snapshot (Expected)</div>
-          <div className="flex-1 px-3 py-1.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 pl-10">Current Response</div>
+          <div className="flex-1 px-3 py-1.5 text-[11px] font-bold bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-r-2 border-border pl-10">Snapshot (Expected)</div>
+          <div className="flex-1 px-3 py-1.5 text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 pl-10">Current Response</div>
         </div>
         <div className="font-mono text-xs leading-6">
           {Array.from({ length: maxLen }).map((_, i) => {
@@ -101,11 +101,15 @@ const JsonDiffViewer: React.FC<JsonDiffViewerProps> = ({ nodes, title, oldData, 
             return (
               <div key={i} className="flex">
                 <span className="w-8 shrink-0 text-right pr-2 text-muted-foreground/50 text-[10px] leading-6 bg-muted/30 select-none border-r">{i < oldLines.length ? i + 1 : ''}</span>
-                <div className={cn('flex-1 px-2 border-r-2 border-border', ol.type === 'removed' ? 'bg-red-50 text-red-700' : ol.type === 'changed' ? 'bg-amber-50 text-amber-800' : '')}>
+                <div className={cn('flex-1 px-2 border-r-2 border-border text-foreground',
+                  ol.type === 'removed' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300' :
+                  ol.type === 'changed' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300' : '')}>
                   <pre className="m-0 whitespace-pre">{ol.text}</pre>
                 </div>
                 <span className="w-8 shrink-0 text-right pr-2 text-muted-foreground/50 text-[10px] leading-6 bg-muted/30 select-none border-r">{i < newLines.length ? i + 1 : ''}</span>
-                <div className={cn('flex-1 px-2', nl.type === 'added' ? 'bg-emerald-50 text-emerald-700' : nl.type === 'changed' ? 'bg-amber-50 text-amber-800' : '')}>
+                <div className={cn('flex-1 px-2 text-foreground',
+                  nl.type === 'added' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300' :
+                  nl.type === 'changed' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300' : '')}>
                   <pre className="m-0 whitespace-pre">{nl.text}</pre>
                 </div>
               </div>

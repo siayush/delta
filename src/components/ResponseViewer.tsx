@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import JsonView from '@uiw/react-json-view';
+import { vscodeTheme } from '@uiw/react-json-view/vscode';
+import { githubLightTheme } from '@uiw/react-json-view/githubLight';
 import { ApiResponse, Snapshot, Environment, ComparisonResult } from '../types';
 import { computeDiff, diffSummary } from '../utils/jsonDiff';
 import JsonDiffViewer from './JsonDiffViewer';
@@ -32,6 +34,15 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
   const [saveLabel, setSaveLabel] = useState('');
   const [saveAsBaseline, setSaveAsBaseline] = useState(false);
   const [diffViewMode, setDiffViewMode] = useState<'inline' | 'side-by-side'>('inline');
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => { setDiffTarget(baseline); }, [baseline]);
 
@@ -84,11 +95,11 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
           <span className="text-xs text-muted-foreground font-mono">{formatTime(response.responseTime)}</span>
           {comparison && diffTarget && (
             comparison.isMatch ? (
-              <Badge variant="outline" className="text-emerald-600 border-emerald-300 bg-emerald-50 text-[11px] gap-1">
+              <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-[11px] gap-1">
                 <CheckCircle2 className="h-3 w-3" /> Match
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50 text-[11px] gap-1">
+              <Badge variant="outline" className="text-red-600 dark:text-red-400 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/40 text-[11px] gap-1">
                 <AlertTriangle className="h-3 w-3" /> {comparison.summary.added}+ {comparison.summary.removed}- {comparison.summary.changed}~
               </Badge>
             )
@@ -135,10 +146,13 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
               <h4 className="text-xs font-semibold text-muted-foreground mb-2">Response Body</h4>
               {typeof response.data === 'object' && response.data !== null ? (
                 <div className="border rounded-lg overflow-hidden">
-                  <JsonView value={response.data} style={{ backgroundColor: 'var(--color-muted)', padding: '12px', borderRadius: '0', fontSize: '13px' }} />
+                  <JsonView
+                    value={response.data}
+                    style={{ ...(isDark ? vscodeTheme : githubLightTheme), padding: '12px', borderRadius: '0', fontSize: '13px' }}
+                  />
                 </div>
               ) : (
-                <pre className="bg-muted rounded-lg p-3 text-xs font-mono overflow-auto max-h-[400px] whitespace-pre-wrap break-words">{String(response.data)}</pre>
+                <pre className="bg-muted text-foreground rounded-lg p-3 text-xs font-mono overflow-auto max-h-[400px] whitespace-pre-wrap break-words">{String(response.data)}</pre>
               )}
             </div>
             <div>

@@ -5,7 +5,7 @@ import RequestInterface from './components/RequestInterface';
 import ResponseViewer from './components/ResponseViewer';
 import EnvironmentManager from './components/EnvironmentManager';
 import { Button } from '@/components/ui/button';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader2, Zap, Moon, Sun } from 'lucide-react';
 import * as api from './services/api';
 
 function App() {
@@ -18,6 +18,17 @@ function App() {
   const [requestSnapshots, setRequestSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('api-snapshot-theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    localStorage.setItem('api-snapshot-theme', dark ? 'dark' : 'light');
+  }, [dark]);
 
   const activeEnvironment = environments.find(e => e.id === activeEnvironmentId) || null;
   const baseline = requestSnapshots.find(s => s.isBaseline);
@@ -145,7 +156,7 @@ function App() {
   if (loading) {
     return (
       <div className="h-screen flex flex-col">
-        <header className="bg-primary text-primary-foreground px-6 py-4">
+        <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-4">
           <h1 className="text-xl font-bold tracking-tight">API Snapshot</h1>
         </header>
         <div className="flex-1 flex items-center justify-center">
@@ -158,7 +169,7 @@ function App() {
   if (error) {
     return (
       <div className="h-screen flex flex-col">
-        <header className="bg-primary text-primary-foreground px-6 py-4">
+        <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-4">
           <h1 className="text-xl font-bold tracking-tight">API Snapshot</h1>
         </header>
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -171,21 +182,31 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-muted/30">
-      <header className="bg-primary text-primary-foreground px-6 py-3 flex items-center justify-between shrink-0">
+      <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-3 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-            <Zap className="h-5 w-5" /> API Snapshot
+            <Zap className="h-5 w-5 text-[#FF6C37]" /> API Snapshot
           </h1>
-          <p className="text-xs text-primary-foreground/70">Regression testing for API developers</p>
+          <p className="text-xs text-white/60">Regression testing for API developers</p>
         </div>
-        <EnvironmentManager
-          environments={environments}
-          activeEnvironmentId={activeEnvironmentId}
-          onSelectEnvironment={setActiveEnvironmentId}
-          onCreateEnvironment={handleCreateEnvironment}
-          onUpdateEnvironment={handleUpdateEnvironment}
-          onDeleteEnvironment={handleDeleteEnvironment}
-        />
+        <div className="flex items-center gap-2">
+          <EnvironmentManager
+            environments={environments}
+            activeEnvironmentId={activeEnvironmentId}
+            onSelectEnvironment={setActiveEnvironmentId}
+            onCreateEnvironment={handleCreateEnvironment}
+            onUpdateEnvironment={handleUpdateEnvironment}
+            onDeleteEnvironment={handleDeleteEnvironment}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDark(d => !d)}
+            className="text-white/80 hover:text-white hover:bg-white/10"
+          >
+            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">

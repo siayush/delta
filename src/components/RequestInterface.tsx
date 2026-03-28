@@ -131,7 +131,7 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
 
       {/* Resolved URL preview */}
       {activeEnvironment && localRequest.url && (
-        <div className="px-4 py-1 border-b bg-blue-50 flex items-center gap-2 text-xs">
+        <div className="px-4 py-1 border-b bg-blue-50 dark:bg-blue-950/30 flex items-center gap-2 text-xs">
           <Badge variant="outline" className="text-[10px] h-4" style={{ borderColor: activeEnvironment.color, color: activeEnvironment.color }}>
             {activeEnvironment.name}
           </Badge>
