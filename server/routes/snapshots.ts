@@ -18,13 +18,10 @@ router.get('/', async (req: Request, res: Response) => {
 // Save new snapshot
 router.post('/', async (req: Request, res: Response) => {
   try {
-    console.log('[Snapshots] POST body keys:', Object.keys(req.body));
-    console.log('[Snapshots] requestId:', req.body.requestId, 'hasResponse:', !!req.body.response);
     const snapshot = await Snapshot.create({
       ...req.body,
       timestamp: Date.now()
     });
-    console.log('[Snapshots] Created:', snapshot._id);
     res.status(201).json(snapshot);
   } catch (err: any) {
     console.error('[Snapshots] Create failed:', err.message, err.errors);

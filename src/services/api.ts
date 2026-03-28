@@ -2,7 +2,6 @@ import axios from 'axios';
 import { ApiRequest, ApiResponse, Folder, Snapshot, Environment } from '../types';
 
 const API_BASE = 'http://localhost:3000/api';
-console.log('[API] Service initialized, baseURL:', API_BASE);
 
 const client = axios.create({
   baseURL: API_BASE,
@@ -11,13 +10,11 @@ const client = axios.create({
 
 // Log all requests and responses
 client.interceptors.request.use(config => {
-  console.log(`[API] >> ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data || '');
   return config;
 });
 
 client.interceptors.response.use(
   response => {
-    console.log(`[API] << ${response.status} ${response.config.url}`, response.data);
     return response;
   },
   error => {

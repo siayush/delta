@@ -1,53 +1,70 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ApiRequest, ApiResponse, Folder, Snapshot, Environment } from './types';
-import Sidebar from './components/Sidebar';
-import RequestInterface from './components/RequestInterface';
-import ResponseViewer from './components/ResponseViewer';
-import EnvironmentManager from './components/EnvironmentManager';
-import { Button } from '@/components/ui/button';
-import { Loader2, Zap, Moon, Sun } from 'lucide-react';
-import * as api from './services/api';
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  ApiRequest,
+  ApiResponse,
+  Folder,
+  Snapshot,
+  Environment,
+} from "./types";
+import Sidebar from "./components/Sidebar";
+import RequestInterface from "./components/RequestInterface";
+import ResponseViewer from "./components/ResponseViewer";
+import EnvironmentManager from "./components/EnvironmentManager";
+import { Button } from "@/components/ui/button";
+import { Loader2, Zap, Moon, Sun } from "lucide-react";
+import * as api from "./services/api";
 
 function App() {
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [environments, setEnvironments] = useState<Environment[]>([]);
-  const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(null);
+  const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(
+    null,
+  );
   const [activeRequest, setActiveRequest] = useState<ApiRequest | null>(null);
-  const [currentResponse, setCurrentResponse] = useState<ApiResponse | null>(null);
+  const [currentResponse, setCurrentResponse] = useState<ApiResponse | null>(
+    null,
+  );
   const [requestSnapshots, setRequestSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('api-snapshot-theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const saved = localStorage.getItem("api-snapshot-theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('api-snapshot-theme', dark ? 'dark' : 'light');
+    document.documentElement.classList.toggle("dark", dark);
+    localStorage.setItem("api-snapshot-theme", dark ? "dark" : "light");
   }, [dark]);
 
-  const activeEnvironment = environments.find(e => e.id === activeEnvironmentId) || null;
-  const baseline = requestSnapshots.find(s => s.isBaseline);
+  const activeEnvironment =
+    environments.find((e) => e.id === activeEnvironmentId) || null;
+  const baseline = requestSnapshots.find((s) => s.isBaseline);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    console.log('[App] Starting initial data load...');
-    Promise.all([api.fetchRequests(), api.fetchFolders(), api.fetchEnvironments()])
+    Promise.all([
+      api.fetchRequests(),
+      api.fetchFolders(),
+      api.fetchEnvironments(),
+    ])
       .then(([reqs, folds, envs]) => {
-        console.log('[App] Data loaded:', { requests: reqs, folders: folds, environments: envs });
         setRequests(reqs);
         setFolders(folds);
         setEnvironments(envs);
       })
-      .catch(err => {
-        console.error('[App] Failed to load data:', err);
-        setError('Failed to connect to server. Make sure the backend is running on port 3000.');
+      .catch((err) => {
+        console.error("[App] Failed to load data:", err);
+        setError(
+          "Failed to connect to server. Make sure the backend is running on port 3000.",
+        );
       })
-      .finally(() => { console.log('[App] Loading complete'); setLoading(false); });
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const loadSnapshots = useCallback(async (requestId: string) => {
@@ -55,7 +72,7 @@ function App() {
       const snaps = await api.fetchSnapshots(requestId);
       setRequestSnapshots(snaps);
     } catch (err) {
-      console.error('Failed to load snapshots:', err);
+      console.error("Failed to load snapshots:", err);
       setRequestSnapshots([]);
     }
   }, []);
@@ -66,92 +83,164 @@ function App() {
   }, [activeRequest?.id, loadSnapshots]);
 
   const createNewRequest = async () => {
-    console.log('[App] createNewRequest called');
     try {
-      const newRequest = await api.createRequest({ name: 'New Request', method: 'GET', url: '', headers: {}, queryParams: {}, body: '' });
-      console.log('[App] Request created:', newRequest);
-      setRequests(prev => [newRequest, ...prev]);
+      const newRequest = await api.createRequest({
+        name: "New Request",
+        method: "GET",
+        url: "",
+        headers: {},
+        queryParams: {},
+        body: "",
+      });
+      setRequests((prev) => [newRequest, ...prev]);
       setActiveRequest(newRequest);
       setCurrentResponse(null);
-    } catch (err) { console.error('[App] Failed to create request:', err); }
+    } catch (err) {
+      console.error("[App] Failed to create request:", err);
+    }
   };
 
   const updateRequest = (updatedRequest: ApiRequest) => {
-    setRequests(prev => prev.map(req => req.id === updatedRequest.id ? updatedRequest : req));
+    setRequests((prev) =>
+      prev.map((req) => (req.id === updatedRequest.id ? updatedRequest : req)),
+    );
     setActiveRequest(updatedRequest);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
-      try { await api.updateRequest(updatedRequest.id, updatedRequest); }
-      catch (err) { console.error('Failed to save request:', err); }
+      try {
+        await api.updateRequest(updatedRequest.id, updatedRequest);
+      } catch (err) {
+        console.error("Failed to save request:", err);
+      }
     }, 500);
   };
 
   const deleteRequest = async (requestId: string) => {
     try {
       await api.deleteRequest(requestId);
-      setRequests(prev => prev.filter(req => req.id !== requestId));
-      if (activeRequest?.id === requestId) { setActiveRequest(null); setCurrentResponse(null); setRequestSnapshots([]); }
-    } catch (err) { console.error('Failed to delete request:', err); }
+      setRequests((prev) => prev.filter((req) => req.id !== requestId));
+      if (activeRequest?.id === requestId) {
+        setActiveRequest(null);
+        setCurrentResponse(null);
+        setRequestSnapshots([]);
+      }
+    } catch (err) {
+      console.error("Failed to delete request:", err);
+    }
   };
 
   const createFolder = async (name: string) => {
-    try { const f = await api.createFolder(name); setFolders(prev => [f, ...prev]); }
-    catch (err) { console.error('Failed to create folder:', err); }
+    try {
+      const f = await api.createFolder(name);
+      setFolders((prev) => [f, ...prev]);
+    } catch (err) {
+      console.error("Failed to create folder:", err);
+    }
   };
 
   const deleteFolder = async (folderId: string) => {
     try {
       await api.deleteFolder(folderId);
-      setFolders(prev => prev.filter(f => f.id !== folderId));
-      setRequests(prev => prev.map(req => req.folderId === folderId ? { ...req, folderId: undefined } : req));
-    } catch (err) { console.error('Failed to delete folder:', err); }
+      setFolders((prev) => prev.filter((f) => f.id !== folderId));
+      setRequests((prev) =>
+        prev.map((req) =>
+          req.folderId === folderId ? { ...req, folderId: undefined } : req,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to delete folder:", err);
+    }
   };
 
   const moveRequestToFolder = async (requestId: string, folderId?: string) => {
     try {
-      const saved = await api.updateRequest(requestId, { folderId } as Partial<ApiRequest>);
-      setRequests(prev => prev.map(req => req.id === requestId ? saved : req));
-    } catch (err) { console.error('Failed to move request:', err); }
+      const saved = await api.updateRequest(requestId, {
+        folderId,
+      } as Partial<ApiRequest>);
+      setRequests((prev) =>
+        prev.map((req) => (req.id === requestId ? saved : req)),
+      );
+    } catch (err) {
+      console.error("Failed to move request:", err);
+    }
   };
 
   const saveSnapshot = async (label?: string, setAsBaseline?: boolean) => {
-    console.log('[App] saveSnapshot called', { hasResponse: !!currentResponse, hasActiveRequest: !!activeRequest, label, setAsBaseline });
-    if (!currentResponse || !activeRequest) { console.warn('[App] saveSnapshot bailed'); return; }
+    if (!currentResponse || !activeRequest) {
+      console.warn("[App] saveSnapshot bailed");
+      return;
+    }
     try {
-      const snapshot = await api.saveSnapshot({ requestId: activeRequest.id, environmentId: activeEnvironmentId || undefined, label, isBaseline: setAsBaseline || false, response: currentResponse });
-      if (setAsBaseline) setRequestSnapshots(prev => [snapshot, ...prev.map(s => ({ ...s, isBaseline: false }))]);
-      else setRequestSnapshots(prev => [snapshot, ...prev]);
-    } catch (err) { console.error('Failed to save snapshot:', err); }
+      const snapshot = await api.saveSnapshot({
+        requestId: activeRequest.id,
+        environmentId: activeEnvironmentId || undefined,
+        label,
+        isBaseline: setAsBaseline || false,
+        response: currentResponse,
+      });
+      if (setAsBaseline)
+        setRequestSnapshots((prev) => [
+          snapshot,
+          ...prev.map((s) => ({ ...s, isBaseline: false })),
+        ]);
+      else setRequestSnapshots((prev) => [snapshot, ...prev]);
+    } catch (err) {
+      console.error("Failed to save snapshot:", err);
+    }
   };
 
   const handleDeleteSnapshot = async (snapshotId: string) => {
-    try { await api.deleteSnapshot(snapshotId); setRequestSnapshots(prev => prev.filter(s => s.id !== snapshotId)); }
-    catch (err) { console.error('Failed to delete snapshot:', err); }
+    try {
+      await api.deleteSnapshot(snapshotId);
+      setRequestSnapshots((prev) => prev.filter((s) => s.id !== snapshotId));
+    } catch (err) {
+      console.error("Failed to delete snapshot:", err);
+    }
   };
 
   const handleSetBaseline = async (snapshotId: string) => {
     try {
       const updated = await api.setBaseline(snapshotId);
-      setRequestSnapshots(prev => prev.map(s => s.id === snapshotId ? updated : { ...s, isBaseline: false }));
-    } catch (err) { console.error('Failed to set baseline:', err); }
+      setRequestSnapshots((prev) =>
+        prev.map((s) =>
+          s.id === snapshotId ? updated : { ...s, isBaseline: false },
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to set baseline:", err);
+    }
   };
 
-  const handleCreateEnvironment = async (env: Omit<Environment, 'id'>) => {
-    try { const c = await api.createEnvironment(env); setEnvironments(prev => [...prev, c]); }
-    catch (err) { console.error('Failed to create environment:', err); }
+  const handleCreateEnvironment = async (env: Omit<Environment, "id">) => {
+    try {
+      const c = await api.createEnvironment(env);
+      setEnvironments((prev) => [...prev, c]);
+    } catch (err) {
+      console.error("Failed to create environment:", err);
+    }
   };
 
-  const handleUpdateEnvironment = async (id: string, env: Partial<Environment>) => {
-    try { const u = await api.updateEnvironment(id, env); setEnvironments(prev => prev.map(e => e.id === id ? u : e)); }
-    catch (err) { console.error('Failed to update environment:', err); }
+  const handleUpdateEnvironment = async (
+    id: string,
+    env: Partial<Environment>,
+  ) => {
+    try {
+      const u = await api.updateEnvironment(id, env);
+      setEnvironments((prev) => prev.map((e) => (e.id === id ? u : e)));
+    } catch (err) {
+      console.error("Failed to update environment:", err);
+    }
   };
 
   const handleDeleteEnvironment = async (id: string) => {
-    try { await api.deleteEnvironment(id); setEnvironments(prev => prev.filter(e => e.id !== id)); if (activeEnvironmentId === id) setActiveEnvironmentId(null); }
-    catch (err) { console.error('Failed to delete environment:', err); }
+    try {
+      await api.deleteEnvironment(id);
+      setEnvironments((prev) => prev.filter((e) => e.id !== id));
+      if (activeEnvironmentId === id) setActiveEnvironmentId(null);
+    } catch (err) {
+      console.error("Failed to delete environment:", err);
+    }
   };
-
-  console.log('[App] Render:', { loading, error, activeRequest: activeRequest?.id, requestCount: requests.length });
 
   if (loading) {
     return (
@@ -187,7 +276,9 @@ function App() {
           <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
             <Zap className="h-5 w-5 text-[#FF6C37]" /> API Snapshot
           </h1>
-          <p className="text-xs text-white/60">Regression testing for API developers</p>
+          <p className="text-xs text-white/60">
+            Regression testing for API developers
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <EnvironmentManager
@@ -201,7 +292,7 @@ function App() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setDark(d => !d)}
+            onClick={() => setDark((d) => !d)}
             className="text-white/80 hover:text-white hover:bg-white/10"
           >
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -214,7 +305,10 @@ function App() {
           requests={requests}
           folders={folders}
           activeRequest={activeRequest}
-          onRequestSelect={(req) => { setActiveRequest(req); setCurrentResponse(null); }}
+          onRequestSelect={(req) => {
+            setActiveRequest(req);
+            setCurrentResponse(null);
+          }}
           onNewRequest={createNewRequest}
           onDeleteRequest={deleteRequest}
           onCreateFolder={createFolder}
@@ -244,8 +338,12 @@ function App() {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border shadow-sm">
               <Zap className="h-12 w-12 text-muted-foreground/40 mb-4" />
-              <h2 className="text-lg font-semibold text-foreground mb-1">Welcome to API Snapshot</h2>
-              <p className="text-sm text-muted-foreground mb-6">Create a new request or select one from the sidebar.</p>
+              <h2 className="text-lg font-semibold text-foreground mb-1">
+                Welcome to API Snapshot
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Create a new request or select one from the sidebar.
+              </p>
               <Button onClick={createNewRequest}>Create New Request</Button>
             </div>
           )}
