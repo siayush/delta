@@ -87,7 +87,7 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Status bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 gap-3 flex-wrap">
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/50 gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Badge className={cn('text-xs font-bold text-white', getStatusColor(response.status))}>
             {response.status} {response.statusText}
@@ -107,21 +107,21 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700" onClick={() => onSaveSnapshot(undefined, false)}>
+          <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => onSaveSnapshot(undefined, false)}>
             <Save className="h-3 w-3 mr-1" /> Save
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onSaveSnapshot(undefined, true)}>
+          <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white" onClick={() => onSaveSnapshot(undefined, true)}>
             <Bookmark className="h-3 w-3 mr-1" /> Baseline
           </Button>
           {!showSaveForm ? (
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowSaveForm(true)}>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowSaveForm(true)}>
               <Tag className="h-3 w-3 mr-1" /> Label
             </Button>
           ) : (
             <div className="flex items-center gap-1">
               <Input value={saveLabel} onChange={e => setSaveLabel(e.target.value)} placeholder="Label" className="h-7 w-28 text-xs" autoFocus />
-              <Button size="sm" className="h-7 text-xs" onClick={handleSave}>Save</Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowSaveForm(false)}>x</Button>
+              <Button size="sm" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSave}>Save</Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowSaveForm(false)}>x</Button>
             </div>
           )}
         </div>
@@ -129,14 +129,14 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="h-9 bg-muted/40 rounded-none border-b w-full justify-start px-4 shrink-0">
-          <TabsTrigger value="response" className="text-xs data-[state=active]:shadow-none">Response</TabsTrigger>
-          <TabsTrigger value="diff" className="text-xs data-[state=active]:shadow-none gap-1">
+        <TabsList variant="line" className="h-9 p-0 rounded-none border-b w-full justify-start px-4 shrink-0">
+          <TabsTrigger value="response" className="text-xs px-3 h-9 rounded-none">Response</TabsTrigger>
+          <TabsTrigger value="diff" className="text-xs px-3 h-9 rounded-none">
             Diff
             {comparison && !comparison.isMatch && <span className="w-1.5 h-1.5 rounded-full bg-red-500" />}
           </TabsTrigger>
-          <TabsTrigger value="history" className="text-xs data-[state=active]:shadow-none">
-            History <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{snapshots.length}</Badge>
+          <TabsTrigger value="history" className="text-xs px-3 h-9 rounded-none">
+            History <Badge variant="secondary" className="ml-1 h-4 min-w-4 text-[10px] px-1 rounded-full">{snapshots.length}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -173,14 +173,23 @@ const ResponseViewer: React.FC<ResponseViewerProps> = ({
               {snapshots.length > 0 && (
                 <div className="flex items-center gap-2 flex-1">
                   <span className="text-xs font-medium text-muted-foreground shrink-0">Compare against:</span>
-                  <Select value={diffTarget?.id || ''} onValueChange={v => setDiffTarget(snapshots.find(s => s.id === v))}>
+                  <Select value={diffTarget?.id || 'none'} onValueChange={v => setDiffTarget(v === 'none' ? undefined : snapshots.find(s => s.id === v))}>
                     <SelectTrigger className="h-7 text-xs flex-1">
                       <SelectValue placeholder="Select snapshot" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent alignItemWithTrigger={false} side="bottom" sideOffset={4}>
+                      <SelectItem value="None" className="text-xs py-1.5 text-muted-foreground">
+                        none
+                      </SelectItem>
                       {snapshots.map(s => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                          {s.isBaseline ? '[Baseline] ' : ''}{s.label || new Date(s.timestamp).toLocaleString()} - {s.response.status}
+                        <SelectItem key={s.id} value={s.id} className="text-xs py-1.5">
+                          <span className="flex items-center gap-2">
+                            {s.isBaseline && <Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0 border-blue-400 text-blue-500">Baseline</Badge>}
+                            <Badge className={cn('text-[10px] h-4 px-1.5 shrink-0 text-white', s.response.status >= 200 && s.response.status < 300 ? 'bg-emerald-500' : s.response.status >= 400 ? 'bg-red-500' : 'bg-amber-500')}>
+                              {s.response.status}
+                            </Badge>
+                            <span className="truncate">{s.label || new Date(s.timestamp).toLocaleString()}</span>
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>

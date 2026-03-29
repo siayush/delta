@@ -63,7 +63,7 @@ const EnvironmentManager: React.FC<EnvironmentManagerProps> = ({
       <div className="flex items-center gap-1.5">
         {activeEnv && <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: activeEnv.color }} />}
         <Select value={activeEnvironmentId || 'none'} onValueChange={(v) => onSelectEnvironment(v === 'none' ? null : v)}>
-          <SelectTrigger className="h-7 w-[140px] text-xs bg-white/10 border-white/20 text-primary-foreground">
+          <SelectTrigger className="h-7 w-[140px] text-xs bg-sidebar-accent border-sidebar-border text-sidebar-foreground">
             <SelectValue placeholder="No Environment" />
           </SelectTrigger>
           <SelectContent>
@@ -80,7 +80,7 @@ const EnvironmentManager: React.FC<EnvironmentManagerProps> = ({
         </Select>
       </div>
 
-      <Button size="icon" variant="ghost" className="h-7 w-7 text-primary-foreground/70 hover:text-primary-foreground hover:bg-white/10" onClick={openCreate}>
+      <Button size="icon" variant="ghost" className="h-7 w-7 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent" onClick={openCreate}>
         <Settings2 className="h-3.5 w-3.5" />
       </Button>
 

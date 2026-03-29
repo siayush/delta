@@ -245,8 +245,8 @@ function App() {
   if (loading) {
     return (
       <div className="h-screen flex flex-col">
-        <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-4">
-          <h1 className="text-xl font-bold tracking-tight">API Snapshot</h1>
+        <header className="bg-sidebar text-sidebar-foreground px-6 py-4 border-b border-sidebar-border">
+          <h1 className="text-xl font-bold tracking-tight">Delta</h1>
         </header>
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -258,8 +258,8 @@ function App() {
   if (error) {
     return (
       <div className="h-screen flex flex-col">
-        <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-4">
-          <h1 className="text-xl font-bold tracking-tight">API Snapshot</h1>
+        <header className="bg-sidebar text-sidebar-foreground px-6 py-4 border-b border-sidebar-border">
+          <h1 className="text-xl font-bold tracking-tight">Delta</h1>
         </header>
         <div className="flex-1 flex flex-col items-center justify-center gap-4">
           <p className="text-destructive font-medium">{error}</p>
@@ -270,13 +270,13 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-muted/30">
-      <header className="bg-[oklch(0.17_0.01_280)] text-white px-6 py-3 flex items-center justify-between shrink-0">
+    <div className="h-screen flex flex-col bg-background">
+      <header className="bg-sidebar text-sidebar-foreground px-6 py-3 flex items-center justify-between shrink-0 border-b border-sidebar-border">
         <div>
           <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-            <Zap className="h-5 w-5 text-[#FF6C37]" /> API Snapshot
+            <Zap className="h-5 w-5 text-[#FF6C37]" /> Delta
           </h1>
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-sidebar-foreground/50">
             Regression testing for API developers
           </p>
         </div>
@@ -293,7 +293,7 @@ function App() {
             variant="ghost"
             size="icon"
             onClick={() => setDark((d) => !d)}
-            className="text-white/80 hover:text-white hover:bg-white/10"
+            className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
           >
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
@@ -316,15 +316,16 @@ function App() {
           onMoveRequest={moveRequestToFolder}
         />
 
-        <main className="flex-1 flex flex-col overflow-hidden m-2 ml-0">
+        <main className="flex-1 flex flex-col overflow-hidden">
           {activeRequest ? (
-            <div className="flex flex-col flex-1 bg-card rounded-lg border shadow-sm overflow-hidden">
+            <div className="flex flex-col flex-1 bg-background overflow-hidden">
               <RequestInterface
                 request={activeRequest}
                 onRequestUpdate={updateRequest}
                 onResponseReceived={setCurrentResponse}
                 activeEnvironment={activeEnvironment}
               />
+              <div className="border-t" />
               <ResponseViewer
                 response={currentResponse}
                 snapshots={requestSnapshots}
@@ -336,10 +337,10 @@ function App() {
               />
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center bg-card rounded-lg border shadow-sm">
+            <div className="flex-1 flex flex-col items-center justify-center bg-background">
               <Zap className="h-12 w-12 text-muted-foreground/40 mb-4" />
               <h2 className="text-lg font-semibold text-foreground mb-1">
-                Welcome to API Snapshot
+                Welcome to Delta
               </h2>
               <p className="text-sm text-muted-foreground mb-6">
                 Create a new request or select one from the sidebar.

@@ -54,8 +54,8 @@ const SnapshotHistory: React.FC<SnapshotHistoryProps> = ({
             key={snap.id}
             className={cn(
               'rounded-lg border transition-colors',
-              snap.isBaseline && 'border-blue-300 bg-blue-50/50',
-              selectedDiffId === snap.id && 'border-orange-300 bg-orange-50/50',
+              snap.isBaseline && 'border-blue-400/50 dark:border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/30',
+              selectedDiffId === snap.id && 'border-orange-400/50 dark:border-orange-500/30 bg-orange-50/50 dark:bg-orange-950/30',
               !snap.isBaseline && selectedDiffId !== snap.id && 'hover:bg-muted/50'
             )}
           >
@@ -80,7 +80,7 @@ const SnapshotHistory: React.FC<SnapshotHistoryProps> = ({
                   </Badge>
                 )}
                 {snap.label && <span className="text-xs italic text-muted-foreground truncate">{snap.label}</span>}
-                {snap.isBaseline && <Badge className="text-[10px] h-4 bg-blue-100 text-blue-700 hover:bg-blue-100">Baseline</Badge>}
+                {snap.isBaseline && <Badge className="text-[10px] h-4 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50">Baseline</Badge>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[11px] text-muted-foreground">{formatDate(snap.timestamp)}</span>

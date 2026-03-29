@@ -10,8 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, Import, Loader2, X } from 'lucide-react';
+import { Import, Loader2, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface RequestInterfaceProps {
   request: ApiRequest;
@@ -88,77 +94,99 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
     } catch { alert('Failed to parse cURL command.'); }
   };
 
+  const methodColor = localRequest.method === 'GET' ? 'text-emerald-500' : localRequest.method === 'POST' ? 'text-amber-500' : localRequest.method === 'DELETE' ? 'text-red-500' : localRequest.method === 'PUT' ? 'text-blue-500' : 'text-violet-500';
+
+  const headerCount = Object.keys(localRequest.headers).filter(k => k.trim()).length;
+  const paramCount = Object.keys(localRequest.queryParams).filter(k => k.trim()).length;
+  const hasBody = localRequest.body.trim().length > 0;
+
   return (
-    <div className="border-b">
-      {/* Request name */}
-      <div className="px-4 py-2 border-b bg-muted/30">
+    <div>
+      {/* Request name — minimal inline like Postman tab title */}
+      <div className="px-4 pt-3 pb-1">
         <Input
           value={localRequest.name}
           onChange={(e) => updateLocalRequest({ name: e.target.value })}
-          className="border-0 shadow-none px-0 h-7 text-sm font-semibold bg-transparent focus-visible:ring-0"
-          placeholder="Request name"
+          className="border-0 shadow-none px-0 h-6 text-sm font-medium bg-transparent focus-visible:ring-0 text-foreground/80 w-auto"
+          placeholder="Untitled Request"
         />
       </div>
 
-      {/* URL bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b">
-        <Select value={localRequest.method} onValueChange={(v) => updateLocalRequest({ method: v as ApiRequest['method'] })}>
-          <SelectTrigger className={cn('w-[110px] h-8 text-xs font-bold', localRequest.method === 'GET' ? 'text-emerald-600' : localRequest.method === 'POST' ? 'text-blue-600' : localRequest.method === 'DELETE' ? 'text-red-600' : 'text-amber-600')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].map(m => (
-              <SelectItem key={m} value={m} className="text-xs font-semibold">{m}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* URL bar — single unified row like Postman */}
+      <div className="flex items-center gap-0 px-4 pb-3">
+        <div className="flex items-center flex-1 h-9 border rounded-lg overflow-hidden bg-background focus-within:ring-1 focus-within:ring-ring">
+          <Select value={localRequest.method} onValueChange={(v) => updateLocalRequest({ method: v as ApiRequest['method'] })}>
+            <SelectTrigger className={cn('w-[100px] h-9 rounded-none border-0 border-r shadow-none text-xs font-bold focus:ring-0', methodColor)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].map(m => (
+                <SelectItem key={m} value={m} className="text-xs font-semibold">{m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Input
-          value={localRequest.url}
-          onChange={(e) => updateLocalRequest({ url: e.target.value })}
-          className="flex-1 h-8 font-mono text-xs"
-          placeholder="Enter request URL"
-        />
+          <Input
+            value={localRequest.url}
+            onChange={(e) => updateLocalRequest({ url: e.target.value })}
+            onKeyDown={(e) => { if (e.key === 'Enter') sendRequest(); }}
+            className="flex-1 h-9 rounded-none border-0 shadow-none font-mono text-xs focus-visible:ring-0 px-3"
+            placeholder="Enter URL or paste text"
+          />
+        </div>
 
-        <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={sendRequest} disabled={isLoading || !localRequest.url.trim()}>
-          {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Send</>}
-        </Button>
+        <div className="flex items-center gap-1.5 ml-2">
+          <Button className="h-9 px-5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg" onClick={sendRequest} disabled={isLoading || !localRequest.url.trim()}>
+            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Send'}
+          </Button>
 
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowCurlImport(true)}>
-          <Import className="h-3.5 w-3.5 mr-1" /> cURL
-        </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center justify-center h-9 w-8 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground cursor-pointer">
+              <ChevronDown className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowCurlImport(true)}>
+                <Import className="h-3.5 w-3.5 mr-2" /> Import cURL
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      {/* Resolved URL preview */}
+      {/* Resolved URL preview — compact inline */}
       {activeEnvironment && localRequest.url && (
-        <div className="px-4 py-1 border-b bg-blue-50 dark:bg-blue-950/30 flex items-center gap-2 text-xs">
-          <Badge variant="outline" className="text-[10px] h-4" style={{ borderColor: activeEnvironment.color, color: activeEnvironment.color }}>
+        <div className="px-4 pb-2 -mt-1 flex items-center gap-2 text-[11px]">
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5" style={{ borderColor: activeEnvironment.color, color: activeEnvironment.color }}>
             {activeEnvironment.name}
           </Badge>
           <span className="font-mono text-muted-foreground truncate">{resolveUrl(buildUrl(), activeEnvironment)}</span>
         </div>
       )}
 
-      {/* Tabs: Headers, Params, Body */}
-      <Tabs defaultValue="headers" className="border-b">
-        <TabsList className="h-8 bg-muted/50 rounded-none border-b w-full justify-start px-4">
-          <TabsTrigger value="headers" className="text-xs h-7 data-[state=active]:shadow-none">
-            Headers {Object.keys(localRequest.headers).length > 0 && <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{Object.keys(localRequest.headers).length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="params" className="text-xs h-7 data-[state=active]:shadow-none">
-            Params {Object.keys(localRequest.queryParams).length > 0 && <Badge variant="secondary" className="ml-1 h-4 text-[10px] px-1">{Object.keys(localRequest.queryParams).length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="body" className="text-xs h-7 data-[state=active]:shadow-none">Body</TabsTrigger>
-        </TabsList>
+      {/* Tabs — clean underline style like Postman */}
+      <Tabs defaultValue="params">
+        <div className="border-b px-4">
+          <TabsList variant="line" className="h-9 p-0">
+            <TabsTrigger value="params" className="text-xs px-3 h-9 rounded-none">
+              Params {paramCount > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 text-[10px] px-1 rounded-full">{paramCount}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="headers" className="text-xs px-3 h-9 rounded-none">
+              Headers {headerCount > 0 && <Badge variant="secondary" className="ml-1 h-4 min-w-4 text-[10px] px-1 rounded-full">{headerCount}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="body" className="text-xs px-3 h-9 rounded-none">
+              Body {hasBody && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <div className="max-h-[200px] overflow-y-auto">
-          <TabsContent value="headers" className="m-0 p-3">
-            <KeyValueEditor data={localRequest.headers} onChange={(h) => updateLocalRequest({ headers: h })} keyPlaceholder="Header name" valuePlaceholder="Header value" />
+          <TabsContent value="params" className="m-0 px-4 py-3">
+            <KeyValueEditor title="Query Params" data={localRequest.queryParams} onChange={(q) => updateLocalRequest({ queryParams: q })} />
           </TabsContent>
-          <TabsContent value="params" className="m-0 p-3">
-            <KeyValueEditor data={localRequest.queryParams} onChange={(q) => updateLocalRequest({ queryParams: q })} keyPlaceholder="Param name" valuePlaceholder="Param value" />
+          <TabsContent value="headers" className="m-0 px-4 py-3">
+            <KeyValueEditor title="Headers" data={localRequest.headers} onChange={(h) => updateLocalRequest({ headers: h })} />
           </TabsContent>
-          <TabsContent value="body" className="m-0 p-3">
+          <TabsContent value="body" className="m-0 px-4 py-3">
             <Textarea
               value={localRequest.body}
               onChange={(e) => updateLocalRequest({ body: e.target.value })}
@@ -193,13 +221,12 @@ const RequestInterface: React.FC<RequestInterfaceProps> = ({
 
 /* Key-Value pair editor */
 interface KVProps {
+  title: string;
   data: Record<string, string>;
   onChange: (data: Record<string, string>) => void;
-  keyPlaceholder: string;
-  valuePlaceholder: string;
 }
 
-const KeyValueEditor: React.FC<KVProps> = ({ data, onChange, keyPlaceholder, valuePlaceholder }) => {
+const KeyValueEditor: React.FC<KVProps> = ({ title, data, onChange }) => {
   const [pairs, setPairs] = useState<Array<{ key: string; value: string; id: string }>>(() => {
     const p = Object.entries(data).map(([key, value], i) => ({ key, value, id: `${i}-${key}` }));
     p.push({ key: '', value: '', id: `new-${Date.now()}` });
@@ -238,18 +265,38 @@ const KeyValueEditor: React.FC<KVProps> = ({ data, onChange, keyPlaceholder, val
   };
 
   return (
-    <div className="space-y-1.5">
-      {pairs.map((pair) => (
-        <div key={pair.id} className="flex items-center gap-1.5">
-          <Input value={pair.key} onChange={(e) => updatePair(pair.id, e.target.value, pair.value)} placeholder={keyPlaceholder} className="h-7 text-xs flex-1" />
-          <Input value={pair.value} onChange={(e) => updatePair(pair.id, pair.key, e.target.value)} placeholder={valuePlaceholder} className="h-7 text-xs flex-1" />
-          {(pair.key.trim() || pair.value.trim()) && (
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => removePair(pair.id)}>
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      ))}
+    <div>
+      <h4 className="text-sm font-medium text-muted-foreground mb-2">{title}</h4>
+      <div className="border rounded-md overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b bg-muted/40">
+              <th className="text-xs font-medium text-muted-foreground text-center px-3 py-1.5 w-1/2">Key</th>
+              <th className="text-xs font-medium text-muted-foreground text-center px-3 py-1.5 w-1/2">Value</th>
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {pairs.map((pair) => (
+              <tr key={pair.id} className="border-b last:border-b-0 group">
+                <td className="px-1 py-0.5 border-r">
+                  <Input value={pair.key} onChange={(e) => updatePair(pair.id, e.target.value, pair.value)} placeholder="Key" className="h-7 text-xs border-0 shadow-none focus-visible:ring-0 rounded-none bg-transparent" />
+                </td>
+                <td className="px-1 py-0.5">
+                  <Input value={pair.value} onChange={(e) => updatePair(pair.id, pair.key, e.target.value)} placeholder="Value" className="h-7 text-xs border-0 shadow-none focus-visible:ring-0 rounded-none bg-transparent" />
+                </td>
+                <td className="px-1 py-0.5 text-center">
+                  {(pair.key.trim() || pair.value.trim()) && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removePair(pair.id)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
