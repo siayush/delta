@@ -12,10 +12,10 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/delta';
+const MONGODB_URI = 'mongodb+srv://ayush:passayush@cluster0.sio8rmb.mongodb.net/?appName=Cluster0';
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
 // Routes
