@@ -1,13 +1,30 @@
-import { useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { ChevronRight, Folder, FolderPlus, Plus, Trash2 } from 'lucide-react'
+import {
+  ArrowUpDown,
+  ChevronRight,
+  Folder,
+  FolderPlus,
+  Plus,
+  Search,
+  Settings as SettingsIcon,
+  Trash2
+} from 'lucide-react'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { useCreateRequest, useDeleteRequest, useRequests } from '../queries/requests'
 import { useCreateFolder, useFolders } from '../queries/folders'
 import { cn } from '../lib/utils'
 
-export function Sidebar() {
+const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
+
+type SortMode = 'recent' | 'name'
+
+interface SidebarProps {
+  topSlot?: ReactNode
+}
+
+export function Sidebar({ topSlot }: SidebarProps = {}) {
   const { data: requests = [] } = useRequests()
   const { data: folders = [] } = useFolders()
   const createRequest = useCreateRequest()
@@ -21,8 +38,39 @@ export function Sidebar() {
   const [folderName, setFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({})
+  const [search, setSearch] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>('recent')
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  const unfiled = requests.filter((r) => !r.folderId)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  const q = search.trim().toLowerCase()
+  const matchesQuery = (text: string | undefined): boolean =>
+    !q || (text ?? '').toLowerCase().includes(q)
+
+  const sortRequests = <T extends { name?: string | null; updatedAt?: number }>(items: T[]): T[] => {
+    if (sortMode === 'name') {
+      return [...items].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+    }
+    return [...items].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+  }
+
+  const sortedFolders = useMemo(() => {
+    if (sortMode === 'name') return [...folders].sort((a, b) => a.name.localeCompare(b.name))
+    return folders
+  }, [folders, sortMode])
+
+  const unfiled = sortRequests(requests.filter((r) => !r.folderId && matchesQuery(r.name)))
 
   const handleNewRequest = async (folderId?: string): Promise<void> => {
     const req = await createRequest.mutateAsync({
@@ -44,11 +92,36 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 shrink-0 border-r border-(--color-border) bg-(--color-bg-elev) flex flex-col">
-      <div className="h-9 px-3 flex items-center justify-between border-b border-(--color-border)">
-        <span className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold">
-          Collection
+      {topSlot}
+      <div className="p-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-(--color-fg-subtle) pointer-events-none" />
+          <Input
+            ref={searchRef}
+            placeholder="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-7 pr-10 h-8"
+          />
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center h-[18px] px-1.5 rounded border border-(--color-border) bg-(--color-bg) text-[10px] text-(--color-fg-subtle) font-mono pointer-events-none">
+            {isMac ? '⌘K' : '^K'}
+          </kbd>
+        </div>
+      </div>
+
+      <div className="h-8 px-3 flex items-center justify-between">
+        <span className="text-[10.5px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold">
+          Projects
         </span>
         <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSortMode((m) => (m === 'recent' ? 'name' : 'recent'))}
+            title={sortMode === 'recent' ? 'Sorted by recent — click for name' : 'Sorted by name — click for recent'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -57,19 +130,11 @@ export function Sidebar() {
           >
             <FolderPlus className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleNewRequest()}
-            title="New request (⌘N)"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
         </div>
       </div>
 
       {showNewFolder && (
-        <form onSubmit={handleSubmitFolder} className="p-2 border-b border-(--color-border)">
+        <form onSubmit={handleSubmitFolder} className="p-2 border-y border-(--color-border)">
           <Input
             autoFocus
             placeholder="Folder name…"
@@ -88,16 +153,21 @@ export function Sidebar() {
         </form>
       )}
 
-      <div className="flex-1 overflow-y-auto p-1.5">
-        {folders.map((f) => {
+      <div className="flex-1 overflow-y-auto px-2 py-1.5">
+        {sortedFolders.map((f) => {
           const isOpen = openFolders[f.id] ?? true
-          const folderRequests = requests.filter((r) => r.folderId === f.id)
+          const folderRequests = sortRequests(
+            requests.filter((r) => r.folderId === f.id && matchesQuery(r.name))
+          )
+          const folderMatchesQuery = matchesQuery(f.name)
+          if (q && !folderMatchesQuery && folderRequests.length === 0) return null
+
           return (
-            <div key={f.id} className="mb-1">
-              <div className="flex items-center group rounded px-1 py-0.5 hover:bg-(--color-bg)">
+            <div key={f.id} className="mb-0.5">
+              <div className="flex items-center group rounded-md hover:bg-(--color-bg-hover)">
                 <button
                   onClick={() => setOpenFolders((o) => ({ ...o, [f.id]: !isOpen }))}
-                  className="p-0.5 rounded hover:bg-(--color-border)"
+                  className="h-7 w-5 flex items-center justify-center text-(--color-fg-subtle) hover:text-(--color-fg)"
                 >
                   <ChevronRight
                     className={cn('h-3 w-3 transition-transform', isOpen && 'rotate-90')}
@@ -106,18 +176,15 @@ export function Sidebar() {
                 <Link
                   to="/folders/$folderId"
                   params={{ folderId: f.id }}
-                  className="flex items-center gap-1.5 flex-1 min-w-0 text-[12.5px] py-1"
+                  className="flex items-center gap-2 flex-1 min-w-0 text-[13px]"
                 >
                   <Folder className="h-3.5 w-3.5 text-(--color-fg-muted) shrink-0" />
                   <span className="truncate">{f.name}</span>
-                  <span className="ml-auto text-[10.5px] text-(--color-fg-subtle)">
-                    {folderRequests.length}
-                  </span>
                 </Link>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="opacity-0 group-hover:opacity-100 h-5 w-5"
+                  className="opacity-0 group-hover:opacity-100 h-5 w-5 mr-1"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleNewRequest(f.id)
@@ -127,8 +194,8 @@ export function Sidebar() {
                   <Plus className="h-3 w-3" />
                 </Button>
               </div>
-              {isOpen && (
-                <div className="ml-4 border-l border-(--color-border) pl-1">
+              {isOpen && folderRequests.length > 0 && (
+                <div className="pl-5">
                   {folderRequests.map((r) => (
                     <RequestRow
                       key={r.id}
@@ -137,9 +204,6 @@ export function Sidebar() {
                       onDelete={() => deleteRequest.mutate(r.id)}
                     />
                   ))}
-                  {folderRequests.length === 0 && (
-                    <div className="text-[11px] text-(--color-fg-subtle) px-2 py-1">Empty</div>
-                  )}
                 </div>
               )}
             </div>
@@ -147,12 +211,7 @@ export function Sidebar() {
         })}
 
         {unfiled.length > 0 && (
-          <div className="mt-2">
-            {folders.length > 0 && (
-              <div className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold px-2 py-1">
-                Unfiled
-              </div>
-            )}
+          <div className={folders.length > 0 ? 'mt-1' : ''}>
             {unfiled.map((r) => (
               <RequestRow
                 key={r.id}
@@ -169,42 +228,95 @@ export function Sidebar() {
             No requests yet.
           </div>
         )}
+
+        {q && unfiled.length === 0 && sortedFolders.every((f) =>
+          requests.filter((r) => r.folderId === f.id && matchesQuery(r.name)).length === 0 &&
+          !matchesQuery(f.name)
+        ) && (
+          <div className="text-[12px] text-(--color-fg-muted) px-2 py-4 text-center">
+            No matches.
+          </div>
+        )}
+      </div>
+
+      <div>
+        <button className="w-full h-9 px-3 flex items-center gap-2 text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg) hover:text-(--color-fg)">
+          <SettingsIcon className="h-3.5 w-3.5" />
+          Settings
+        </button>
       </div>
     </aside>
   )
 }
 
 interface RowProps {
-  request: { id: string; name: string; method: string; url: string }
+  request: { id: string; name: string; method: string; url: string; updatedAt?: number }
   active: boolean
   onDelete: () => void
 }
 
 function RequestRow({ request, active, onDelete }: RowProps) {
+  const methodLabel = methodShortLabel(request.method)
   return (
     <Link
       to="/requests/$requestId"
       params={{ requestId: request.id }}
       className={cn(
-        'group flex items-center gap-2 rounded px-2 py-1 text-[12.5px] hover:bg-(--color-bg)',
-        active && 'bg-(--color-bg) text-(--color-fg)'
+        'group flex items-center gap-1.5 rounded-md px-2 h-7 text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg)',
+        active && 'bg-(--color-bg-hover) text-(--color-fg)'
       )}
+      title={request.method + ' · ' + (request.url || request.name)}
     >
-      <span className={`method-${request.method} text-[10px] font-mono font-bold w-9 shrink-0`}>
-        {request.method}
+      <span
+        className={cn(
+          `method-${request.method}`,
+          'shrink-0 font-semibold text-[10.5px] tracking-wider uppercase'
+        )}
+      >
+        {methodLabel}
       </span>
       <span className="truncate flex-1">{request.name || 'Untitled'}</span>
+      {request.updatedAt ? (
+        <span className="text-[11px] text-(--color-fg-subtle) shrink-0 group-hover:hidden">
+          {formatRelative(request.updatedAt)}
+        </span>
+      ) : null}
       <button
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
           onDelete()
         }}
-        className="opacity-0 group-hover:opacity-100 text-(--color-fg-muted) hover:text-(--color-danger)"
+        className="hidden group-hover:inline-flex text-(--color-fg-muted) hover:text-(--color-danger)"
         title="Delete"
       >
         <Trash2 className="h-3 w-3" />
       </button>
     </Link>
   )
+}
+
+function methodShortLabel(method: string): string {
+  switch (method) {
+    case 'DELETE':
+      return 'DEL'
+    case 'OPTIONS':
+      return 'OPT'
+    case 'PATCH':
+      return 'PCH'
+    default:
+      return method
+  }
+}
+
+function formatRelative(ts: number): string {
+  const diff = Date.now() - ts
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(ts).toLocaleDateString()
 }

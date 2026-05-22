@@ -1,10 +1,14 @@
 import { app, BrowserWindow, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import icon from '../../resources/icon.png?asset'
 import { initLogger, logger } from './logger'
 import { initDb, closeDb } from './db'
 import { registerAllIpc } from './ipc'
 import { createMainWindow, getMainWindow } from './window'
 import { initUpdater } from './updater'
+
+app.setName('Delta')
+process.title = 'Delta'
 
 initLogger()
 
@@ -22,6 +26,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.delta.desktop')
+
+    if (process.platform === 'darwin') app.dock?.setIcon(icon)
 
     // CSP — strict in production, relaxed in dev so Vite's HMR client
     // and the React Refresh preamble can run (both inject inline scripts).

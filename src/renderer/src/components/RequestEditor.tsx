@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Play, Loader2 } from 'lucide-react'
+import { Loader2, ChevronDown } from 'lucide-react'
 import type { ApiRequest, HttpMethod } from '@shared/types'
-import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { useUpdateRequest } from '../queries/requests'
 import { useSendRequest } from '../queries/http'
@@ -99,42 +98,58 @@ export function RequestEditor({ request }: Props) {
 
   return (
     <div className="border-b border-(--color-border) bg-(--color-bg)">
-      <div className="px-4 py-3 flex flex-col gap-3">
+      <div className="px-3 pt-2.5 pb-2 flex flex-col gap-2">
         <Input
           value={local.name}
           onChange={(e) => patch({ name: e.target.value })}
           placeholder="Request name"
-          className="border-transparent bg-transparent hover:bg-(--color-bg-elev) px-2 font-semibold text-[14px] h-7"
+          className="border-transparent bg-transparent hover:bg-(--color-bg-elev) px-1.5 font-semibold text-[13.5px] h-6"
         />
-        <div className="flex items-center gap-2">
-          <select
-            value={local.method}
-            onChange={(e) => patch({ method: e.target.value as HttpMethod })}
-            className={cn(
-              'h-8 px-2 rounded-md border border-(--color-border) bg-(--color-bg-elev) text-[12px] font-mono font-bold',
-              `method-${local.method}`
-            )}
-          >
-            {METHODS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-          <Input
+        <div
+          className={cn(
+            'flex items-stretch h-8 rounded-md border border-(--color-border) bg-(--color-bg-elev) overflow-hidden',
+            'focus-within:border-(--color-accent)'
+          )}
+        >
+          <div className="relative flex items-center">
+            <select
+              value={local.method}
+              onChange={(e) => patch({ method: e.target.value as HttpMethod })}
+              className={cn(
+                'appearance-none h-full pl-3 pr-7 bg-transparent border-0 outline-none focus:outline-none text-[11.5px] font-mono font-bold cursor-pointer',
+                `method-${local.method}`
+              )}
+            >
+              {METHODS.map((m) => (
+                <option key={m} value={m} className="bg-(--color-bg-elev) text-(--color-fg)">
+                  {m}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="absolute right-2 h-3 w-3 pointer-events-none text-(--color-fg-muted)"
+              aria-hidden
+            />
+          </div>
+          <div className="w-px self-stretch bg-(--color-border)" />
+          <input
             placeholder={env?.baseUrl ? `${env.baseUrl}/path or full URL` : 'https://...'}
             value={local.url}
             onChange={(e) => patch({ url: e.target.value })}
-            className="font-mono"
+            className="flex-1 min-w-0 h-full px-3 bg-transparent border-0 outline-none focus:outline-none text-[12.5px] font-mono placeholder:text-(--color-fg-subtle)"
           />
-          <Button onClick={handleSend} disabled={send.isPending || !local.url}>
-            {send.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Play className="h-3.5 w-3.5" />
+          <button
+            onClick={handleSend}
+            disabled={send.isPending || !local.url}
+            className={cn(
+              'h-full px-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold',
+              'bg-(--color-accent) text-(--color-accent-fg)',
+              'hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
             )}
+          >
+            {send.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Send
-          </Button>
+          </button>
         </div>
         {error && (
           <div className="text-[12px] text-(--color-danger) bg-(--color-danger)/10 border border-(--color-danger)/30 rounded px-2 py-1.5">
@@ -143,14 +158,14 @@ export function RequestEditor({ request }: Props) {
         )}
       </div>
 
-      <div className="border-t border-(--color-border) px-4">
-        <div className="flex gap-4">
+      <div className="border-t border-(--color-border) px-3">
+        <div className="flex gap-3">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                'py-2 text-[12px] border-b-2 -mb-px',
+                'py-1.5 px-1 text-[11.5px] font-medium border-b-2 -mb-px transition-colors',
                 tab === t
                   ? 'border-(--color-accent) text-(--color-fg)'
                   : 'border-transparent text-(--color-fg-muted) hover:text-(--color-fg)'
@@ -162,7 +177,7 @@ export function RequestEditor({ request }: Props) {
         </div>
       </div>
 
-      <div className="px-4 py-3 max-h-64 overflow-auto">
+      <div className="px-3 py-2.5 max-h-64 overflow-auto">
         {tab === 'Headers' && (
           <KeyValueEditor
             entries={local.headers}
@@ -215,33 +230,61 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
   }
   const add = (): void => onChange({ ...entries, '': '' })
 
+  const displayRows: Array<[string, string] | null> = rows.length === 0 ? [null] : rows
+
   return (
-    <div className="space-y-1.5">
-      {rows.length === 0 && (
-        <div className="text-[12px] text-(--color-fg-muted) py-2">No {placeholder.key.toLowerCase()}s yet.</div>
-      )}
-      {rows.map(([k, v], idx) => (
-        <div key={idx} className="flex gap-2">
-          <Input
-            value={k}
-            placeholder={placeholder.key}
-            onChange={(e) => update(idx, e.target.value, v)}
-            className="font-mono"
-          />
-          <Input
-            value={v}
-            placeholder={placeholder.value}
-            onChange={(e) => update(idx, k, e.target.value)}
-            className="font-mono"
-          />
-          <Button variant="ghost" size="icon" onClick={() => remove(idx)} title="Remove">
-            ×
-          </Button>
+    <div className="space-y-2">
+      <div className="rounded-md border border-(--color-border) overflow-hidden">
+        <div className="grid grid-cols-[1fr_1fr_28px] bg-(--color-bg-elev)/60 border-b border-(--color-border) text-[10.5px] uppercase tracking-wider text-(--color-fg-subtle) font-medium">
+          <div className="px-2.5 py-1.5">{placeholder.key}</div>
+          <div className="px-2.5 py-1.5 border-l border-(--color-border)">{placeholder.value}</div>
+          <div className="border-l border-(--color-border)" />
         </div>
-      ))}
-      <Button size="sm" variant="outline" onClick={add}>
+        {displayRows.map((row, idx) => {
+          const k = row ? row[0] : ''
+          const v = row ? row[1] : ''
+          const isPlaceholder = row === null
+          return (
+            <div
+              key={idx}
+              className="grid grid-cols-[1fr_1fr_28px] border-t border-(--color-border) first:border-t-0"
+            >
+              <input
+                value={k}
+                placeholder={placeholder.key}
+                onChange={(e) => (isPlaceholder ? add() : update(idx, e.target.value, v))}
+                onFocus={() => {
+                  if (isPlaceholder) add()
+                }}
+                className="h-7 px-2.5 bg-transparent border-0 outline-none text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
+              />
+              <input
+                value={v}
+                placeholder={placeholder.value}
+                onChange={(e) => (isPlaceholder ? add() : update(idx, k, e.target.value))}
+                onFocus={() => {
+                  if (isPlaceholder) add()
+                }}
+                className="h-7 px-2.5 bg-transparent border-0 border-l border-(--color-border) outline-none text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
+              />
+              <button
+                onClick={() => !isPlaceholder && remove(idx)}
+                disabled={isPlaceholder}
+                title="Remove"
+                className="border-l border-(--color-border) text-(--color-fg-muted) hover:text-(--color-fg) hover:bg-(--color-bg-hover) disabled:opacity-30 disabled:hover:bg-transparent text-[14px] leading-none cursor-pointer disabled:cursor-default"
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
+      <button
+        onClick={add}
+        className="text-[11.5px] text-(--color-fg-muted) hover:text-(--color-fg) cursor-pointer"
+      >
         + Add row
-      </Button>
+      </button>
     </div>
   )
 }

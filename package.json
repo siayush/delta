@@ -1,5 +1,6 @@
 {
   "name": "delta",
+  "productName": "Delta",
   "version": "0.1.0",
   "description": "delta — API Diff Client (desktop)",
   "main": "./out/main/index.js",

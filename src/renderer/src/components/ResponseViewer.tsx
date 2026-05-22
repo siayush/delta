@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, GitCompare, Save, Star, Trash2 } from 'lucide-react'
+import { Camera, Check, GitCompare, Save, Star, Trash2 } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { useResponseStore } from '../stores/response'
@@ -17,7 +17,7 @@ interface Props {
   requestId: string
 }
 
-type Tab = 'response' | 'diff'
+type Tab = 'response' | 'diff' | 'snapshots'
 
 export function ResponseViewer({ requestId }: Props) {
   const response = useResponseStore((s) => s.responses[requestId])
@@ -29,12 +29,64 @@ export function ResponseViewer({ requestId }: Props) {
 
   const [tab, setTab] = useState<Tab>('response')
   const [label, setLabel] = useState('')
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null)
   const baseline = snapshots.find((s) => s.isBaseline) ?? null
+  const selectedSnapshot = selectedSnapshotId
+    ? snapshots.find((s) => s.id === selectedSnapshotId) ?? null
+    : null
 
-  // Prefer the explicit baseline; fall back to the most recent snapshot
-  // so the Diff tab is usable as soon as anything has been saved.
+  // Diff sources, in priority order:
+  //  - explicitly selected snapshot vs live response (or vs baseline / newest when no response)
+  //  - live response vs baseline (or most recent snapshot)
+  //  - newest snapshot vs baseline / previous snapshot (when no live response)
   const compareSnapshot = useMemo(() => baseline ?? snapshots[0] ?? null, [baseline, snapshots])
-  const compareTarget = compareSnapshot?.response ?? null
+  const labelFor = (s: { label?: string | null; isBaseline?: boolean }, fallback: string): string =>
+    s.isBaseline ? 'baseline' : s.label?.trim() || fallback
+
+  const diffPair = useMemo(() => {
+    if (selectedSnapshot) {
+      if (response) {
+        return {
+          before: selectedSnapshot.response.data,
+          after: response.data,
+          leftLabel: labelFor(selectedSnapshot, 'selected snapshot'),
+          rightLabel: 'current response'
+        }
+      }
+      const other =
+        baseline && baseline.id !== selectedSnapshot.id
+          ? baseline
+          : snapshots.find((s) => s.id !== selectedSnapshot.id) ?? null
+      if (other) {
+        return {
+          before: other.response.data,
+          after: selectedSnapshot.response.data,
+          leftLabel: labelFor(other, 'other snapshot'),
+          rightLabel: labelFor(selectedSnapshot, 'selected snapshot')
+        }
+      }
+      return null
+    }
+    if (response && compareSnapshot) {
+      return {
+        before: compareSnapshot.response.data,
+        after: response.data,
+        leftLabel: labelFor(compareSnapshot, 'latest snapshot'),
+        rightLabel: 'current response'
+      }
+    }
+    if (snapshots.length >= 2) {
+      const newest = snapshots[0]
+      const reference = baseline && baseline.id !== newest.id ? baseline : snapshots[1]
+      return {
+        before: reference.response.data,
+        after: newest.response.data,
+        leftLabel: labelFor(reference, 'older snapshot'),
+        rightLabel: labelFor(newest, 'latest snapshot')
+      }
+    }
+    return null
+  }, [selectedSnapshot, response, compareSnapshot, snapshots, baseline])
 
   if (!response && snapshots.length === 0) {
     return (
@@ -58,7 +110,7 @@ export function ResponseViewer({ requestId }: Props) {
 
   return (
     <div className="flex flex-col flex-1 bg-(--color-bg) overflow-hidden">
-      <div className="flex items-center justify-between border-b border-(--color-border) px-4 h-9">
+      <div className="flex items-center justify-between border-b border-(--color-border) px-4 h-9 shrink-0">
         <div className="flex items-center gap-1">
           <TabButton active={tab === 'response'} onClick={() => setTab('response')}>
             Response
@@ -66,19 +118,23 @@ export function ResponseViewer({ requestId }: Props) {
           <TabButton
             active={tab === 'diff'}
             onClick={() => setTab('diff')}
-            disabled={!compareTarget || !response}
             title={
-              !response
-                ? 'Send a request first'
-                : !compareTarget
-                  ? 'Save a snapshot first'
-                  : baseline
-                    ? 'Diff vs baseline'
-                    : 'Diff vs latest snapshot'
+              diffPair
+                ? `Diff: ${diffPair.leftLabel} → ${diffPair.rightLabel}`
+                : 'Diff — needs a response and a snapshot, or two snapshots'
             }
           >
             <GitCompare className="h-3 w-3" />
-            {baseline ? 'Diff vs baseline' : 'Diff vs latest'}
+            Diff
+          </TabButton>
+          <TabButton active={tab === 'snapshots'} onClick={() => setTab('snapshots')}>
+            <Camera className="h-3 w-3" />
+            Snapshots
+            {snapshots.length > 0 && (
+              <span className="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-[15px] px-1 rounded-full bg-(--color-bg-elev) border border-(--color-border) text-[10px] font-mono text-(--color-fg-muted)">
+                {snapshots.length}
+              </span>
+            )}
           </TabButton>
         </div>
         {response && (
@@ -99,89 +155,153 @@ export function ResponseViewer({ requestId }: Props) {
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_280px] flex-1 overflow-hidden">
-        <div className="overflow-auto p-3 font-mono text-[12px] selectable">
+      {tab !== 'snapshots' && (
+        <div className="flex-1 overflow-auto p-3 font-mono text-[12px] selectable">
           {tab === 'response' && response && <pre>{prettyJson(response.data)}</pre>}
-          {tab === 'diff' && response && compareTarget && (
-            <JsonDiffView before={compareTarget.data} after={response.data} />
-          )}
           {tab === 'response' && !response && (
-            <div className="text-(--color-fg-muted) text-[13px]">No live response. Snapshots →</div>
+            <div className="text-(--color-fg-muted) text-[13px] font-sans">
+              No live response. Open Snapshots to view saved results.
+            </div>
+          )}
+          {tab === 'diff' && diffPair && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-(--color-fg-muted) font-sans">
+                <span className="text-(--color-danger)">– {diffPair.leftLabel}</span>
+                <span className="mx-2 text-(--color-fg-subtle)">vs</span>
+                <span className="text-(--color-success)">+ {diffPair.rightLabel}</span>
+              </div>
+              <JsonDiffView before={diffPair.before} after={diffPair.after} />
+            </div>
+          )}
+          {tab === 'diff' && !diffPair && (
+            <div className="text-(--color-fg-muted) text-[13px] font-sans space-y-2">
+              <p>Nothing to diff yet.</p>
+              {!response && snapshots.length === 0 && (
+                <p>Send a request, then save the result as a snapshot. Send again to diff the two.</p>
+              )}
+              {response && snapshots.length === 0 && (
+                <p>Save the current response as a snapshot, then send the request again.</p>
+              )}
+              {!response && snapshots.length === 1 && (
+                <p>Send a request to diff against the saved snapshot.</p>
+              )}
+            </div>
           )}
         </div>
+      )}
 
-        <aside className="border-l border-(--color-border) bg-(--color-bg-elev) flex flex-col overflow-hidden">
-          <div className="p-2.5 border-b border-(--color-border) space-y-2">
+      {tab === 'snapshots' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-3 py-2.5 border-b border-(--color-border) flex items-center gap-2 shrink-0">
             <Input
               placeholder="Label (optional)"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               disabled={!response}
+              className="max-w-xs"
             />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => handleSaveSnapshot(false)}
-                disabled={!response || createSnapshot.isPending}
-                className="flex-1"
-              >
-                <Save className="h-3 w-3" /> Save
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleSaveSnapshot(true)}
-                disabled={!response || createSnapshot.isPending}
-                title="Save as baseline"
-              >
-                <Star className="h-3 w-3" />
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={() => handleSaveSnapshot(false)}
+              disabled={!response || createSnapshot.isPending}
+            >
+              <Save className="h-3 w-3" /> Save snapshot
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSaveSnapshot(true)}
+              disabled={!response || createSnapshot.isPending}
+              title="Save as baseline"
+            >
+              <Star className="h-3 w-3" /> Baseline
+            </Button>
+            {!response && (
+              <span className="text-[11.5px] text-(--color-fg-subtle) ml-1">
+                Send a request to save a snapshot.
+              </span>
+            )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-1.5">
+          <div className="flex-1 overflow-y-auto p-2">
             {snapshots.length === 0 && (
-              <div className="text-[12px] text-(--color-fg-muted) text-center py-4">
+              <div className="text-[12.5px] text-(--color-fg-muted) text-center py-8">
                 No snapshots yet.
               </div>
             )}
-            {snapshots.map((s) => (
-              <div
-                key={s.id}
-                className="group rounded p-2 hover:bg-(--color-bg) text-[12px] mb-0.5"
-              >
-                <div className="flex items-center gap-1.5">
-                  {s.isBaseline && <Star className="h-3 w-3 text-(--color-warn) fill-current" />}
-                  <span className="font-medium truncate">{s.label || 'Snapshot'}</span>
-                  <span className="ml-auto text-[10.5px] text-(--color-fg-subtle)">
-                    {formatRelative(s.createdAt)}
-                  </span>
-                </div>
-                <div className="font-mono text-[10.5px] text-(--color-fg-muted) mt-0.5">
-                  {s.response.status} · {formatBytes(s.response.size)}
-                </div>
-                <div className="flex gap-1 mt-1 opacity-0 group-hover:opacity-100">
-                  {!s.isBaseline && (
-                    <button
-                      onClick={() => setBaseline.mutate(s.id)}
-                      className="text-[10.5px] text-(--color-fg-muted) hover:text-(--color-fg) inline-flex items-center gap-0.5"
-                      title="Set as baseline"
-                    >
-                      <Check className="h-2.5 w-2.5" /> Baseline
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteSnapshot.mutate(s.id)}
-                    className="text-[10.5px] text-(--color-fg-muted) hover:text-(--color-danger) inline-flex items-center gap-0.5 ml-auto"
+            <div className="grid gap-1.5">
+              {snapshots.map((s) => {
+                const isSelected = s.id === selectedSnapshotId
+                return (
+                  <div
+                    key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedSnapshotId(isSelected ? null : s.id)
+                      setTab('diff')
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedSnapshotId(isSelected ? null : s.id)
+                        setTab('diff')
+                      }
+                    }}
+                    className={cn(
+                      'group rounded-md border px-3 py-2 text-[12.5px] cursor-pointer',
+                      isSelected
+                        ? 'bg-(--color-bg-elev) border-(--color-accent)/40'
+                        : 'border-(--color-border) hover:bg-(--color-bg-elev)'
+                    )}
+                    title={
+                      isSelected ? 'Click to deselect' : 'Click to diff against this snapshot'
+                    }
                   >
-                    <Trash2 className="h-2.5 w-2.5" /> Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <div className="flex items-center gap-2">
+                      {s.isBaseline && (
+                        <Star className="h-3 w-3 text-(--color-warn) fill-current shrink-0" />
+                      )}
+                      <span className="font-medium truncate">{s.label || 'Snapshot'}</span>
+                      <span className="font-mono text-[11px] text-(--color-fg-muted)">
+                        {s.response.status} · {formatBytes(s.response.size)}
+                      </span>
+                      <span className="ml-auto text-[11px] text-(--color-fg-subtle)">
+                        {formatRelative(s.createdAt)}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                        {!s.isBaseline && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setBaseline.mutate(s.id)
+                            }}
+                            className="text-[11px] text-(--color-fg-muted) hover:text-(--color-fg) inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded hover:bg-(--color-bg)"
+                            title="Set as baseline"
+                          >
+                            <Check className="h-2.5 w-2.5" /> Baseline
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isSelected) setSelectedSnapshotId(null)
+                            deleteSnapshot.mutate(s.id)
+                          }}
+                          className="text-(--color-fg-muted) hover:text-(--color-danger) p-0.5 rounded hover:bg-(--color-bg)"
+                          title="Delete snapshot"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </aside>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

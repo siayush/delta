@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
-import { useUiStore } from '../stores/ui'
 
-const PIERRE_THEME = { dark: 'pierre-dark-soft', light: 'pierre-light-soft' } as const
+const PIERRE_THEME = { dark: 'pierre-dark-soft', light: 'pierre-dark-soft' } as const
 
 interface Props {
   before: unknown
@@ -11,7 +10,6 @@ interface Props {
 }
 
 export function JsonDiffView({ before, after }: Props) {
-  const theme = useUiStore((s) => s.theme)
   const [view, setView] = useState<'unified' | 'split'>('unified')
 
   const fileDiff = useMemo(() => {
@@ -51,7 +49,7 @@ export function JsonDiffView({ before, after }: Props) {
             diffStyle: view,
             disableFileHeader: true,
             overflow: 'wrap',
-            themeType: theme,
+            themeType: 'dark',
             theme: PIERRE_THEME
           }}
         />

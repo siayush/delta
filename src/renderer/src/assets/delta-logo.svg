@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" role="img" aria-label="Delta">
+  <defs>
+    <linearGradient id="delta-tile" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#3a3a3a" />
+      <stop offset="55%" stop-color="#1a1a1a" />
+      <stop offset="100%" stop-color="#0a0a0a" />
+    </linearGradient>
+    <linearGradient id="delta-rim" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4" />
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.08" />
+    </linearGradient>
+    <linearGradient id="delta-face-l" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#fbfbfb" />
+      <stop offset="55%" stop-color="#c4c4c4" />
+      <stop offset="100%" stop-color="#6f6f6f" />
+    </linearGradient>
+    <linearGradient id="delta-face-r" x1="0.9" y1="0" x2="0.1" y2="1">
+      <stop offset="0%" stop-color="#7a7a7a" />
+      <stop offset="55%" stop-color="#3d3d3d" />
+      <stop offset="100%" stop-color="#1a1a1a" />
+    </linearGradient>
+
+    <!-- Δ silhouette: rounded outer corners + curved swoosh carved into the base. -->
+    <clipPath id="delta-shape" clipPathUnits="userSpaceOnUse">
+      <path d="
+        M 20 8.5
+        L 30.8 27.6
+        A 1.8 1.8 0 0 1 29.2 30.3
+        L 25.4 30.3
+        C 22.6 30.3 22.4 28.3 20 28.3
+        C 17.6 28.3 17.4 30.3 14.6 30.3
+        L 10.8 30.3
+        A 1.8 1.8 0 0 1 9.2 27.6
+        Z
+      " />
+    </clipPath>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="4" y="4" width="32" height="32" rx="8.5" fill="url(#delta-tile)" />
+  <rect x="4.5" y="4.5" width="31" height="31" rx="8" fill="none" stroke="url(#delta-rim)" stroke-width="1" />
+
+  <!-- Metallic faces, masked to the Δ silhouette -->
+  <g clip-path="url(#delta-shape)">
+    <rect x="4" y="4" width="16" height="32" fill="url(#delta-face-l)" />
+    <rect x="20" y="4" width="16" height="32" fill="url(#delta-face-r)" />
+  </g>
+
+</svg>

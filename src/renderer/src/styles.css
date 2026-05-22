@@ -1,26 +1,40 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-bg: #0b0b0c;
-  --color-bg-elev: #131316;
-  --color-border: #232328;
-  --color-border-strong: #2d2d34;
-  --color-fg: #e7e7ea;
-  --color-fg-muted: #9a9aa3;
-  --color-fg-subtle: #696973;
+  /* Palette derived from T3 Code's dark theme:
+     background = neutral-950 mixed with white 5% -> ~#161616
+     card       = background mixed with white 2% -> ~#1b1b1b
+     border     = white at 6% alpha
+     foreground = neutral-100, muted-foreground ≈ neutral-400/500 mix */
+  --color-bg: #161616;
+  --color-bg-elev: #1b1b1b;
+  --color-bg-hover: rgba(255, 255, 255, 0.04);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-input: rgba(255, 255, 255, 0.08);
+  --color-fg: #f5f5f5;
+  --color-fg-muted: #a3a3a3;
+  --color-fg-subtle: #737373;
   --color-accent: #6366f1;
   --color-accent-fg: #ffffff;
-  --color-danger: #ef4444;
-  --color-success: #22c55e;
+  --color-danger: #f87171;
+  --color-success: #10b981;
+  --color-success-fg: #34d399;
   --color-warn: #f59e0b;
-  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace;
+  --color-warn-fg: #fbbf24;
+  --font-sans: 'DM Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, monospace;
 }
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+html {
+  /* Drives @pierre/diffs' light-dark() CSS values to pick the dark variant. */
+  color-scheme: dark;
 }
 
 body {
@@ -42,16 +56,15 @@ textarea,
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 6px;
-  border: 2px solid var(--color-bg);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a44;
+  background: rgba(255, 255, 255, 0.18);
 }
 ::-webkit-scrollbar-track {
   background: transparent;

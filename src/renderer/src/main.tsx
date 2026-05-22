@@ -8,7 +8,7 @@ import { router } from './router'
 
 // Warm the diff syntax highlighter so the first diff render isn't janky.
 void preloadHighlighter({
-  themes: ['pierre-dark-soft', 'pierre-light-soft'],
+  themes: ['pierre-dark-soft'],
   langs: ['json']
 })
 

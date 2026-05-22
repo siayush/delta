@@ -27,24 +27,31 @@ export function EnvironmentManager() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="h-7 px-2 rounded-md inline-flex items-center gap-1.5 text-[12px] border border-(--color-border) bg-(--color-bg) hover:bg-(--color-bg-elev)"
-      >
-        <Layers className="h-3 w-3" />
-        {active ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: active.color }} />
-            {active.name}
-          </span>
-        ) : (
-          <span className="text-(--color-fg-muted)">No environment</span>
+        className={cn(
+          'h-[22px] px-2 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] border bg-(--color-input)/40 hover:bg-(--color-input)/60',
+          active
+            ? 'border-(--color-border) text-(--color-fg)'
+            : 'border-(--color-warn)/30 text-(--color-warn-fg)'
         )}
-        <ChevronDown className="h-3 w-3" />
+      >
+        {active ? (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: active.color }} />
+            {active.name}
+          </>
+        ) : (
+          <>
+            <Layers className="h-3 w-3" />
+            <span>No environment</span>
+          </>
+        )}
+        <ChevronDown className="h-3 w-3 opacity-70" />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1.5 w-80 rounded-lg border border-(--color-border) bg-(--color-bg-elev) shadow-xl z-20 p-2">
+          <div className="absolute left-0 top-full mt-1.5 w-80 rounded-lg border border-(--color-border) bg-(--color-bg-elev) shadow-xl z-20 p-2">
             <button
               onClick={() => setActiveId(null)}
               className={cn(
