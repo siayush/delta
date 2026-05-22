@@ -4,6 +4,11 @@ import type { ApiResponse, SendRequestInput } from '@shared/types'
 import { registerHandler } from './registry'
 import { ipcLogger } from '../logger'
 
+// Tracks in-flight requests keyed by the renderer-supplied requestId so
+// http:cancel can abort them. Entries are removed when the request settles
+// (response, error, timeout, abort).
+const inFlight = new Map<string, Electron.ClientRequest>()
+
 function buildUrl(url: string, queryParams: Record<string, string>): string {
   if (!url) throw new Error('URL is required')
   const entries = Object.entries(queryParams).filter(([k]) => k.trim() !== '')
@@ -57,6 +62,11 @@ async function sendRequest(input: SendRequestInput): Promise<ApiResponse> {
       redirect: 'follow'
     })
 
+    if (input.requestId) inFlight.set(input.requestId, req)
+    const cleanup = (): void => {
+      if (input.requestId) inFlight.delete(input.requestId)
+    }
+
     for (const [key, value] of Object.entries(input.headers)) {
       if (!key.trim()) continue
       try {
@@ -69,6 +79,7 @@ async function sendRequest(input: SendRequestInput): Promise<ApiResponse> {
     const timeoutMs = input.timeoutMs ?? 30_000
     const timer = setTimeout(() => {
       req.abort()
+      cleanup()
       reject(new Error(`Request timed out after ${timeoutMs}ms`))
     }, timeoutMs)
 
@@ -76,6 +87,7 @@ async function sendRequest(input: SendRequestInput): Promise<ApiResponse> {
       try {
         const { raw, size } = await readBody(response)
         clearTimeout(timer)
+        cleanup()
         resolve({
           status: response.statusCode,
           statusText: response.statusMessage,
@@ -86,12 +98,20 @@ async function sendRequest(input: SendRequestInput): Promise<ApiResponse> {
         })
       } catch (e) {
         clearTimeout(timer)
+        cleanup()
         reject(e)
       }
     })
 
+    req.on('abort', () => {
+      clearTimeout(timer)
+      cleanup()
+      reject(new Error('Request cancelled'))
+    })
+
     req.on('error', (err) => {
       clearTimeout(timer)
+      cleanup()
       reject(err)
     })
 
@@ -103,5 +123,11 @@ async function sendRequest(input: SendRequestInput): Promise<ApiResponse> {
 }
 
 export function registerHttpIpc(): void {
-  registerHandler(IpcChannel.HttpSend, (_evt, input) => sendRequest(input as SendRequestInput))
+  registerHandler(IpcChannel.HttpSend, (_evt, input) => sendRequest(input))
+  registerHandler(IpcChannel.HttpCancel, (_evt, requestId) => {
+    const req = inFlight.get(requestId)
+    if (!req) return false
+    req.abort()
+    return true
+  })
 }

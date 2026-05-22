@@ -28,6 +28,7 @@ export const IpcChannel = {
   EnvironmentsDelete: 'environments:delete',
 
   HttpSend: 'http:send',
+  HttpCancel: 'http:cancel',
 
   AppGetVersion: 'app:getVersion',
   AppOpenLogs: 'app:openLogs',

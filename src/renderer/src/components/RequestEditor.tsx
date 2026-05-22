@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import type { ApiRequest, HttpMethod } from '@shared/types'
 import { Input } from './ui/Input'
 import { useUpdateRequest } from '../queries/requests'
-import { useSendRequest } from '../queries/http'
+import { useSendRequest, useCancelRequest } from '../queries/http'
 import { useResponseStore } from '../stores/response'
 import { useEnvironments } from '../queries/environments'
 import { useUiStore } from '../stores/ui'
@@ -21,6 +21,7 @@ interface Props {
 export function RequestEditor({ request }: Props) {
   const update = useUpdateRequest()
   const send = useSendRequest()
+  const cancel = useCancelRequest()
   const setResponse = useResponseStore((s) => s.setResponse)
   const { data: environments = [] } = useEnvironments()
   const activeEnvId = useUiStore((s) => s.activeEnvironmentId)
@@ -30,6 +31,8 @@ export function RequestEditor({ request }: Props) {
   const [tab, setTab] = useState<Tab>('Params')
   const [error, setError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ID of the in-flight send so the Cancel button can target the right request.
+  const inFlightId = useRef<string | null>(null)
 
   useEffect(() => {
     setLocal(request)
@@ -74,6 +77,8 @@ export function RequestEditor({ request }: Props) {
 
   const handleSend = async (): Promise<void> => {
     setError(null)
+    const requestId = crypto.randomUUID()
+    inFlightId.current = requestId
     try {
       const finalUrl = applyEnvironment(local.url, env)
       const resolvedHeaders = Object.fromEntries(
@@ -83,6 +88,7 @@ export function RequestEditor({ request }: Props) {
         Object.entries(local.queryParams).map(([k, v]) => [k, resolveVariables(v, env)])
       )
       const response = await send.mutateAsync({
+        requestId,
         method: local.method,
         url: finalUrl,
         headers: resolvedHeaders,
@@ -93,7 +99,15 @@ export function RequestEditor({ request }: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Request failed')
       setResponse(local.id, null)
+    } finally {
+      inFlightId.current = null
     }
+  }
+
+  const handleCancel = (): void => {
+    const id = inFlightId.current
+    if (!id) return
+    cancel.mutate(id)
   }
 
   return (
@@ -138,18 +152,31 @@ export function RequestEditor({ request }: Props) {
             onChange={(e) => patch({ url: e.target.value })}
             className="flex-1 min-w-0 h-full px-3 bg-transparent border-0 outline-none focus:outline-none text-[12.5px] font-mono placeholder:text-(--color-fg-subtle)"
           />
-          <button
-            onClick={handleSend}
-            disabled={send.isPending || !local.url}
-            className={cn(
-              'h-full px-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold',
-              'bg-(--color-accent) text-(--color-accent-fg)',
-              'hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
-            )}
-          >
-            {send.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            Send
-          </button>
+          {send.isPending ? (
+            <button
+              onClick={handleCancel}
+              className={cn(
+                'h-full px-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold',
+                'bg-(--color-danger) text-white',
+                'hover:opacity-90 cursor-pointer'
+              )}
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancel
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!local.url}
+              className={cn(
+                'h-full px-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold',
+                'bg-(--color-accent) text-(--color-accent-fg)',
+                'hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'
+              )}
+            >
+              Send
+            </button>
+          )}
         </div>
         {error && (
           <div className="text-[12px] text-(--color-danger) bg-(--color-danger)/10 border border-(--color-danger)/30 rounded px-2 py-1.5">

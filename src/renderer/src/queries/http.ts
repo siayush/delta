@@ -7,3 +7,9 @@ export function useSendRequest() {
     mutationFn: (input: SendRequestInput) => api.http.send(input)
   })
 }
+
+export function useCancelRequest() {
+  return useMutation({
+    mutationFn: (requestId: string) => api.http.cancel(requestId)
+  })
+}

@@ -47,7 +47,9 @@ const api = {
     delete: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.EnvironmentsDelete, id)
   },
   http: {
-    send: (input: SendRequestInput) => ipcRenderer.invoke(IpcChannel.HttpSend, input)
+    send: (input: SendRequestInput) => ipcRenderer.invoke(IpcChannel.HttpSend, input),
+    cancel: (requestId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannel.HttpCancel, requestId)
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke(IpcChannel.AppGetVersion),

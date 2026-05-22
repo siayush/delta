@@ -33,6 +33,7 @@
     "electron-updater": "^6.3.9",
     "lucide-react": "^0.460.0",
     "tailwind-merge": "^2.5.5",
+    "zod": "^4.4.3",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
