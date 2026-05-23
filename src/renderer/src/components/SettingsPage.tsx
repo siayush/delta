@@ -1,5 +1,6 @@
 import { type ReactElement, useEffect, useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, Gauge } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import deltaLogo from '../assets/delta-logo.svg'
 import { Button } from './ui/Button'
 import { api } from '../lib/api'
@@ -19,6 +20,7 @@ export function SettingsPage(): ReactElement {
 
 function AboutSection(): ReactElement {
   const [version, setVersion] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     let cancelled = false
@@ -55,6 +57,17 @@ function AboutSection(): ReactElement {
           <Button variant="outline" size="sm" onClick={() => void api.app.openLogs()}>
             <FileText className="h-3.5 w-3.5" />
             Open folder
+          </Button>
+        }
+      />
+
+      <Row
+        title="Benchmark"
+        description="Measure how fast Delta sends requests, parses responses, and renders diffs."
+        control={
+          <Button variant="outline" size="sm" onClick={() => navigate({ to: '/benchmark' })}>
+            <Gauge className="h-3.5 w-3.5" />
+            Open
           </Button>
         }
       />

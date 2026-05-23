@@ -157,7 +157,7 @@ export function ResponseViewer({ requestId }: Props) {
       </div>
 
       {tab !== 'snapshots' && (
-        <div className="flex-1 overflow-auto p-3 font-mono text-[12px] selectable">
+        <div className="flex-1 flex flex-col overflow-hidden p-3 font-mono text-[12px] selectable min-h-0">
           {tab === 'response' && response && <JsonView data={response.data} />}
           {tab === 'response' && !response && (
             <div className="text-(--color-fg-muted) text-[13px] font-sans">
@@ -165,8 +165,8 @@ export function ResponseViewer({ requestId }: Props) {
             </div>
           )}
           {tab === 'diff' && diffPair && (
-            <div className="space-y-2">
-              <div className="text-[11px] text-(--color-fg-muted) font-sans">
+            <div className="flex-1 flex flex-col min-h-0 gap-2">
+              <div className="text-[11px] text-(--color-fg-muted) font-sans shrink-0">
                 <span className="text-(--color-danger)">– {diffPair.leftLabel}</span>
                 <span className="mx-2 text-(--color-fg-subtle)">vs</span>
                 <span className="text-(--color-success)">+ {diffPair.rightLabel}</span>
