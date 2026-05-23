@@ -11,6 +11,7 @@ import {
 } from '../queries/snapshots'
 import { useUiStore } from '../stores/ui'
 import { JsonDiffView } from './JsonDiffView'
+import { JsonView } from './JsonView'
 import { cn, formatBytes, formatMs, formatRelative } from '../lib/utils'
 
 interface Props {
@@ -157,7 +158,7 @@ export function ResponseViewer({ requestId }: Props) {
 
       {tab !== 'snapshots' && (
         <div className="flex-1 overflow-auto p-3 font-mono text-[12px] selectable">
-          {tab === 'response' && response && <pre>{prettyJson(response.data)}</pre>}
+          {tab === 'response' && response && <JsonView data={response.data} />}
           {tab === 'response' && !response && (
             <div className="text-(--color-fg-muted) text-[13px] font-sans">
               No live response. Open Snapshots to view saved results.
@@ -336,11 +337,3 @@ function TabButton({
   )
 }
 
-function prettyJson(data: unknown): string {
-  if (typeof data === 'string') return data
-  try {
-    return JSON.stringify(data, null, 2)
-  } catch {
-    return String(data)
-  }
-}

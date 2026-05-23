@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
 
-const PIERRE_THEME = { dark: 'pierre-dark-soft', light: 'pierre-dark-soft' } as const
+const THEME = 'pierre-dark-soft'
 
 interface Props {
   before: unknown
@@ -50,7 +50,7 @@ export function JsonDiffView({ before, after }: Props) {
             disableFileHeader: true,
             overflow: 'wrap',
             themeType: 'dark',
-            theme: PIERRE_THEME
+            theme: THEME
           }}
         />
       </div>
