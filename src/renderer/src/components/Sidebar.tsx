@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Folder,
   FolderPlus,
+  GitCompare,
   Plus,
   Search,
   Settings as SettingsIcon,
@@ -36,6 +37,7 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
   const activeRequestId =
     matches.find((m) => m.routeId === '/requests/$requestId')?.params['requestId' as never] ?? null
   const onSettings = matches.some((m) => m.routeId === '/settings')
+  const onCompare = matches.some((m) => m.routeId === '/compare')
 
   const [folderName, setFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -241,7 +243,17 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
         )}
       </div>
 
-      <div className="p-2">
+      <div className="p-2 space-y-0.5">
+        <button
+          onClick={() => navigate({ to: '/compare' })}
+          className={cn(
+            'w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg) cursor-pointer',
+            onCompare && 'bg-(--color-bg-active) text-(--color-fg)'
+          )}
+        >
+          <GitCompare className="h-3.5 w-3.5" />
+          Compare JSON
+        </button>
         <button
           onClick={() => navigate({ to: '/settings' })}
           className={cn(

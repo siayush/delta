@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CodeView, type CodeViewItem } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
 
@@ -11,6 +11,11 @@ interface Props {
 
 export function JsonDiffView({ before, after }: Props) {
   const [view, setView] = useState<'unified' | 'split'>('unified')
+  // CodeView reuses the item record across renders when the id matches and
+  // only re-renders the diff body if `version` differs. Without a fresh
+  // version, swapping `fileDiff` is silently ignored — bump it per content
+  // change so the new diff is actually applied.
+  const versionRef = useRef(0)
 
   const items = useMemo<CodeViewItem[]>(() => {
     const beforeStr = stringify(before)
@@ -19,7 +24,8 @@ export function JsonDiffView({ before, after }: Props) {
       { name: 'baseline.json', contents: beforeStr },
       { name: 'current.json', contents: afterStr }
     )
-    return [{ id: 'diff', type: 'diff', fileDiff }]
+    versionRef.current += 1
+    return [{ id: 'diff', type: 'diff', fileDiff, version: versionRef.current }]
   }, [before, after])
 
   return (
