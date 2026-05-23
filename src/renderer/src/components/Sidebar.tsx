@@ -239,8 +239,8 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
         )}
       </div>
 
-      <div>
-        <button className="w-full h-9 px-3 flex items-center gap-2 text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg) hover:text-(--color-fg)">
+      <div className="p-2">
+        <button className="w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg)">
           <SettingsIcon className="h-3.5 w-3.5" />
           Settings
         </button>
