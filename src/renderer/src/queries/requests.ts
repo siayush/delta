@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { queryKeys } from './keys'
+import { useDraftStore } from '../stores/drafts'
+import { useRequestRuntime } from '../stores/requestRuntime'
+import { useResponseStore } from '../stores/response'
 import type { ApiRequest, HttpMethod } from '@shared/types'
 
 export function useRequests() {
@@ -43,6 +46,13 @@ export function useDeleteRequest() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.requests.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.requests })
+    onSuccess: (_data, id) => {
+      // Drop per-request state so deleted requests don't leak entries (and any
+      // in-flight send is aborted via runtime.clear).
+      useDraftStore.getState().clear(id)
+      useRequestRuntime.getState().clear(id)
+      useResponseStore.getState().clearResponse(id)
+      void qc.invalidateQueries({ queryKey: queryKeys.requests })
+    }
   })
 }

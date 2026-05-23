@@ -14,6 +14,7 @@ import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { useCreateRequest, useDeleteRequest, useRequests } from '../queries/requests'
 import { useCreateFolder, useFolders } from '../queries/folders'
+import { useIsPending } from '../stores/requestRuntime'
 import { cn } from '../lib/utils'
 
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
@@ -257,6 +258,7 @@ interface RowProps {
 
 function RequestRow({ request, active, onDelete }: RowProps) {
   const methodLabel = methodShortLabel(request.method)
+  const isPending = useIsPending(request.id)
   return (
     <Link
       to="/requests/$requestId"
@@ -275,7 +277,12 @@ function RequestRow({ request, active, onDelete }: RowProps) {
         {methodLabel}
       </span>
       <span className="truncate flex-1">{request.name || 'Untitled'}</span>
-      {request.updatedAt ? (
+      {isPending ? (
+        <span
+          className="shrink-0 h-1.5 w-1.5 rounded-full bg-(--color-accent) animate-pulse"
+          title="Request in flight"
+        />
+      ) : request.updatedAt ? (
         <span className="text-[11px] text-(--color-fg-subtle) shrink-0 group-hover:hidden">
           {formatRelative(request.updatedAt)}
         </span>

@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import type { ApiRequest, HttpMethod } from '@shared/types'
 import { Input } from './ui/Input'
-import { useUpdateRequest } from '../queries/requests'
-import { useSendRequest, useCancelRequest } from '../queries/http'
-import { useResponseStore } from '../stores/response'
+import { useDraftStore } from '../stores/drafts'
+import { useIsPending, useRequestRuntime, useSendError } from '../stores/requestRuntime'
 import { useEnvironments } from '../queries/environments'
 import { useUiStore } from '../stores/ui'
 import { applyEnvironment, resolveVariables } from '../lib/environment'
@@ -19,95 +18,49 @@ interface Props {
 }
 
 export function RequestEditor({ request }: Props) {
-  const update = useUpdateRequest()
-  const send = useSendRequest()
-  const cancel = useCancelRequest()
-  const setResponse = useResponseStore((s) => s.setResponse)
+  const ensureDraft = useDraftStore((s) => s.ensure)
+  const patchDraft = useDraftStore((s) => s.patch)
+  const local = useDraftStore((s) => s.byRequestId[request.id]) ?? request
+
+  // Seed the draft store the first time we see this request id. ensure() is
+  // idempotent; we deliberately key on id (not the object) so cache reference
+  // churn from each keystroke doesn't re-fire the effect.
+  useEffect(() => {
+    ensureDraft(request)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request.id])
+
+  const isPending = useIsPending(request.id)
+  const error = useSendError(request.id)
+  const startSend = useRequestRuntime((s) => s.startSend)
+  const cancel = useRequestRuntime((s) => s.cancel)
+
   const { data: environments = [] } = useEnvironments()
   const activeEnvId = useUiStore((s) => s.activeEnvironmentId)
   const env = environments.find((e) => e.id === activeEnvId) ?? null
 
-  const [local, setLocal] = useState(request)
   const [tab, setTab] = useState<Tab>('Params')
-  const [error, setError] = useState<string | null>(null)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // ID of the in-flight send so the Cancel button can target the right request.
-  const inFlightId = useRef<string | null>(null)
-
-  useEffect(() => {
-    setLocal(request)
-    setError(null)
-  }, [request.id])
-
-  // Debounced auto-save: edits in the renderer flush to the main process
-  // SQLite after 400ms of inactivity, with a flush on unmount.
-  const queueSave = (patch: ApiRequest): void => {
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      update.mutate({
-        id: patch.id,
-        patch: {
-          name: patch.name,
-          method: patch.method,
-          url: patch.url,
-          headers: patch.headers,
-          queryParams: patch.queryParams,
-          body: patch.body,
-          folderId: patch.folderId
-        }
-      })
-    }, 400)
-  }
-
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) {
-        clearTimeout(saveTimer.current)
-        update.mutate({ id: local.id, patch: local })
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const patch = (changes: Partial<ApiRequest>): void => {
-    const next = { ...local, ...changes }
-    setLocal(next)
-    queueSave(next)
+    patchDraft(request.id, changes)
   }
 
-  const handleSend = async (): Promise<void> => {
-    setError(null)
-    const requestId = crypto.randomUUID()
-    inFlightId.current = requestId
-    try {
-      const finalUrl = applyEnvironment(local.url, env)
-      const resolvedHeaders = Object.fromEntries(
-        Object.entries(local.headers).map(([k, v]) => [k, resolveVariables(v, env)])
-      )
-      const resolvedParams = Object.fromEntries(
-        Object.entries(local.queryParams).map(([k, v]) => [k, resolveVariables(v, env)])
-      )
-      const response = await send.mutateAsync({
-        requestId,
-        method: local.method,
-        url: finalUrl,
-        headers: resolvedHeaders,
-        queryParams: resolvedParams,
-        body: resolveVariables(local.body, env)
-      })
-      setResponse(local.id, response)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Request failed')
-      setResponse(local.id, null)
-    } finally {
-      inFlightId.current = null
-    }
-  }
-
-  const handleCancel = (): void => {
-    const id = inFlightId.current
-    if (!id) return
-    cancel.mutate(id)
+  const handleSend = (): void => {
+    // startSend's initial state set clears any prior error — no extra call needed.
+    const finalUrl = applyEnvironment(local.url, env)
+    const resolvedHeaders = Object.fromEntries(
+      Object.entries(local.headers).map(([k, v]) => [k, resolveVariables(v, env)])
+    )
+    const resolvedParams = Object.fromEntries(
+      Object.entries(local.queryParams).map(([k, v]) => [k, resolveVariables(v, env)])
+    )
+    void startSend(request.id, {
+      method: local.method,
+      url: finalUrl,
+      headers: resolvedHeaders,
+      queryParams: resolvedParams,
+      body: resolveVariables(local.body, env)
+    })
   }
 
   return (
@@ -152,9 +105,9 @@ export function RequestEditor({ request }: Props) {
             onChange={(e) => patch({ url: e.target.value })}
             className="flex-1 min-w-0 h-full px-3 bg-transparent border-0 outline-none focus:outline-none text-[12.5px] font-mono placeholder:text-(--color-fg-subtle)"
           />
-          {send.isPending ? (
+          {isPending ? (
             <button
-              onClick={handleCancel}
+              onClick={() => cancel(request.id)}
               className={cn(
                 'h-full px-4 inline-flex items-center gap-1.5 text-[12.5px] font-semibold',
                 'bg-(--color-danger) text-white',
