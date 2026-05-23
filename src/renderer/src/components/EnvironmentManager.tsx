@@ -192,7 +192,7 @@ function EnvironmentEditModal({ envId, onClose, onSave, onDelete }: EditProps) {
             />
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold mb-2">
+            <div className="text-[10.5px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold mb-2">
               Variables
             </div>
             <div className="space-y-1.5">

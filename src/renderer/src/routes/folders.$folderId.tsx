@@ -59,7 +59,7 @@ function FolderPage() {
               <span className="font-medium">{r.name}</span>
             </div>
             {r.url && (
-              <div className="text-[11.5px] text-(--color-fg-muted) font-mono mt-1 truncate">
+              <div className="text-[12px] text-(--color-fg-muted) font-mono mt-1 truncate">
                 {r.url}
               </div>
             )}

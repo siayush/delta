@@ -138,7 +138,7 @@ export function ResponseViewer({ requestId }: Props) {
           </TabButton>
         </div>
         {response && (
-          <div className="flex items-center gap-3 text-[11.5px] text-(--color-fg-muted) font-mono">
+          <div className="flex items-center gap-3 text-[12px] text-(--color-fg-muted) font-mono">
             <span
               className={cn(
                 response.status >= 400 && 'text-(--color-danger)',
@@ -217,7 +217,7 @@ export function ResponseViewer({ requestId }: Props) {
               <Star className="h-3 w-3" /> Baseline
             </Button>
             {!response && (
-              <span className="text-[11.5px] text-(--color-fg-subtle) ml-1">
+              <span className="text-[12px] text-(--color-fg-subtle) ml-1">
                 Send a request to save a snapshot.
               </span>
             )}
@@ -225,7 +225,7 @@ export function ResponseViewer({ requestId }: Props) {
 
           <div className="flex-1 overflow-y-auto p-2">
             {snapshots.length === 0 && (
-              <div className="text-[12.5px] text-(--color-fg-muted) text-center py-8">
+              <div className="text-[13px] text-(--color-fg-muted) text-center py-8">
                 No snapshots yet.
               </div>
             )}

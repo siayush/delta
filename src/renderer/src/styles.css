@@ -81,6 +81,14 @@ select:focus-visible,
   border-radius: 6px;
 }
 
+/* Inline cell inputs (KV editor) — keep the focus indicator inside the grid
+   instead of floating a rounded ring outside the cell. */
+.kv-cell:focus,
+.kv-cell:focus-visible {
+  outline: none;
+  background: var(--color-bg-hover);
+}
+
 .method-GET {
   color: #22c55e;
 }

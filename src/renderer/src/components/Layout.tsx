@@ -86,9 +86,6 @@ export function Layout({ children }: Props) {
             >
               <DeltaMark />
               <span className="font-semibold tracking-tight text-[13px] leading-none">Delta</span>
-              <span className="ml-1 inline-flex items-center h-[18px] px-1.5 rounded-md border border-(--color-border) text-(--color-fg-subtle) text-[9.5px] font-semibold uppercase tracking-wider leading-none">
-                Alpha
-              </span>
             </button>
           </div>
         }
@@ -158,9 +155,7 @@ function OpenMenu() {
     return () => window.removeEventListener('mousedown', onDown)
   }, [open])
 
-  const recent = [...requests]
-    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
-    .slice(0, 8)
+  const recent = [...requests].sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 8)
 
   return (
     <div ref={ref} className="relative">

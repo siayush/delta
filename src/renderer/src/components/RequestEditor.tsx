@@ -130,7 +130,7 @@ export function RequestEditor({ request }: Props) {
               value={local.method}
               onChange={(e) => patch({ method: e.target.value as HttpMethod })}
               className={cn(
-                'appearance-none h-full pl-3 pr-7 bg-transparent border-0 outline-none focus:outline-none text-[11.5px] font-mono font-bold cursor-pointer',
+                'appearance-none h-full pl-3 pr-7 bg-transparent border-0 outline-none focus:outline-none text-[12px] font-mono font-bold cursor-pointer',
                 `method-${local.method}`
               )}
             >
@@ -186,13 +186,13 @@ export function RequestEditor({ request }: Props) {
       </div>
 
       <div className="border-t border-(--color-border) px-3">
-        <div className="flex gap-3">
+        <div className="flex items-center gap-1">
           {TABS.map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                'py-1.5 px-1 text-[11.5px] font-medium border-b-2 -mb-px transition-colors',
+                'h-9 px-3 text-[12px] font-medium border-b-2 -mb-px transition-colors',
                 tab === t
                   ? 'border-(--color-accent) text-(--color-fg)'
                   : 'border-transparent text-(--color-fg-muted) hover:text-(--color-fg)'
@@ -238,26 +238,65 @@ interface KvProps {
   placeholder: { key: string; value: string }
 }
 
-function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
-  const rows = Object.entries(entries)
-  const update = (idx: number, key: string, value: string): void => {
-    const next: Record<string, string> = {}
-    rows.forEach(([k, v], i) => {
-      if (i === idx) next[key] = value
-      else next[k] = v
-    })
-    onChange(next)
-  }
-  const remove = (idx: number): void => {
-    const next: Record<string, string> = {}
-    rows.forEach(([k, v], i) => {
-      if (i !== idx) next[k] = v
-    })
-    onChange(next)
-  }
-  const add = (): void => onChange({ ...entries, '': '' })
+interface Row {
+  id: string
+  key: string
+  value: string
+}
 
-  const displayRows: Array<[string, string] | null> = rows.length === 0 ? [null] : rows
+const newRowId = (): string =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+
+const entriesToRows = (entries: Record<string, string>): Row[] =>
+  Object.entries(entries).map(([key, value]) => ({ id: newRowId(), key, value }))
+
+const rowsToEntries = (rows: Row[]): Record<string, string> => {
+  const out: Record<string, string> = {}
+  for (const r of rows) {
+    if (r.key === '') continue
+    out[r.key] = r.value
+  }
+  return out
+}
+
+const rowsMatch = (rows: Row[], entries: Record<string, string>): boolean => {
+  const kept = rows.filter((r) => r.key !== '')
+  const keys = Object.keys(entries)
+  if (kept.length !== keys.length) return false
+  return kept.every((r) => entries[r.key] === r.value)
+}
+
+function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
+  const [rows, setRows] = useState<Row[]>(() => entriesToRows(entries))
+  const pendingFocusRef = useRef<string | null>(null)
+
+  // Re-sync when the parent swaps in a different set of entries (e.g. switching requests),
+  // but ignore prop updates that just echo what we already emitted.
+  useEffect(() => {
+    if (!rowsMatch(rows, entries)) {
+      setRows(entriesToRows(entries))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries])
+
+  const commit = (next: Row[]): void => {
+    setRows(next)
+    onChange(rowsToEntries(next))
+  }
+
+  const update = (id: string, key: string, value: string): void => {
+    commit(rows.map((r) => (r.id === id ? { ...r, key, value } : r)))
+  }
+  const remove = (id: string): void => {
+    commit(rows.filter((r) => r.id !== id))
+  }
+  const add = (): void => {
+    const id = newRowId()
+    pendingFocusRef.current = id
+    commit([...rows, { id, key: '', value: '' }])
+  }
 
   return (
     <div className="space-y-2">
@@ -267,48 +306,47 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
           <div className="px-2.5 py-1.5 border-l border-(--color-border)">{placeholder.value}</div>
           <div className="border-l border-(--color-border)" />
         </div>
-        {displayRows.map((row, idx) => {
-          const k = row ? row[0] : ''
-          const v = row ? row[1] : ''
-          const isPlaceholder = row === null
-          return (
-            <div
-              key={idx}
-              className="grid grid-cols-[1fr_1fr_28px] border-t border-(--color-border) first:border-t-0"
+        {rows.length === 0 && (
+          <div className="px-2.5 py-2 text-[12px] text-(--color-fg-subtle)">
+            No {placeholder.key.toLowerCase()}s. Click + Add row to add one.
+          </div>
+        )}
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className="grid grid-cols-[1fr_1fr_28px] border-t border-(--color-border) first:border-t-0"
+          >
+            <input
+              ref={(el) => {
+                if (el && pendingFocusRef.current === row.id) {
+                  el.focus()
+                  pendingFocusRef.current = null
+                }
+              }}
+              value={row.key}
+              placeholder={placeholder.key}
+              onChange={(e) => update(row.id, e.target.value, row.value)}
+              className="kv-cell h-7 px-2.5 bg-transparent border-0 text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
+            />
+            <input
+              value={row.value}
+              placeholder={placeholder.value}
+              onChange={(e) => update(row.id, row.key, e.target.value)}
+              className="kv-cell h-7 px-2.5 bg-transparent border-0 border-l border-(--color-border) text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
+            />
+            <button
+              onClick={() => remove(row.id)}
+              title="Remove"
+              className="border-l border-(--color-border) text-(--color-fg-muted) hover:text-(--color-fg) hover:bg-(--color-bg-hover) text-[14px] leading-none cursor-pointer"
             >
-              <input
-                value={k}
-                placeholder={placeholder.key}
-                onChange={(e) => (isPlaceholder ? add() : update(idx, e.target.value, v))}
-                onFocus={() => {
-                  if (isPlaceholder) add()
-                }}
-                className="h-7 px-2.5 bg-transparent border-0 outline-none text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
-              />
-              <input
-                value={v}
-                placeholder={placeholder.value}
-                onChange={(e) => (isPlaceholder ? add() : update(idx, k, e.target.value))}
-                onFocus={() => {
-                  if (isPlaceholder) add()
-                }}
-                className="h-7 px-2.5 bg-transparent border-0 border-l border-(--color-border) outline-none text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
-              />
-              <button
-                onClick={() => !isPlaceholder && remove(idx)}
-                disabled={isPlaceholder}
-                title="Remove"
-                className="border-l border-(--color-border) text-(--color-fg-muted) hover:text-(--color-fg) hover:bg-(--color-bg-hover) disabled:opacity-30 disabled:hover:bg-transparent text-[14px] leading-none cursor-pointer disabled:cursor-default"
-              >
-                ×
-              </button>
-            </div>
-          )
-        })}
+              ×
+            </button>
+          </div>
+        ))}
       </div>
       <button
         onClick={add}
-        className="text-[11.5px] text-(--color-fg-muted) hover:text-(--color-fg) cursor-pointer"
+        className="text-[12px] text-(--color-fg-muted) hover:text-(--color-fg) cursor-pointer"
       >
         + Add row
       </button>
