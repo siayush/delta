@@ -9,6 +9,7 @@
   --color-bg: #161616;
   --color-bg-elev: #1b1b1b;
   --color-bg-hover: rgba(255, 255, 255, 0.04);
+  --color-bg-active: rgba(255, 255, 255, 0.08);
   --color-border: rgba(255, 255, 255, 0.08);
   --color-border-strong: rgba(255, 255, 255, 0.14);
   --color-input: rgba(255, 255, 255, 0.08);

@@ -195,7 +195,7 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
                 </Button>
               </div>
               {isOpen && folderRequests.length > 0 && (
-                <div className="pl-5">
+                <div className="pl-5 mt-0.5 space-y-0.5">
                   {folderRequests.map((r) => (
                     <RequestRow
                       key={r.id}
@@ -263,9 +263,8 @@ function RequestRow({ request, active, onDelete }: RowProps) {
       params={{ requestId: request.id }}
       className={cn(
         'group flex items-center gap-1.5 rounded-md px-2 h-7 text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg)',
-        active && 'bg-(--color-bg-hover) text-(--color-fg)'
+        active && 'bg-(--color-bg-active) text-(--color-fg) hover:bg-(--color-bg-active)'
       )}
-      title={request.method + ' · ' + (request.url || request.name)}
     >
       <span
         className={cn(
