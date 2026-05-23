@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
-import type { ApiRequest, HttpMethod } from '@shared/types'
+import type {
+  ApiRequest,
+  Environment,
+  HttpMethod,
+  KvEntry,
+  RequestAuth,
+  RequestAuthType
+} from '@shared/types'
 import { Input } from './ui/Input'
 import { useDraftStore } from '../stores/drafts'
 import { useIsPending, useRequestRuntime, useSendError } from '../stores/requestRuntime'
 import { useEnvironments } from '../queries/environments'
 import { useUiStore } from '../stores/ui'
 import { applyEnvironment, resolveVariables } from '../lib/environment'
+import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { JsonBodyEditor } from './JsonBodyEditor'
 
 const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
-const TABS = ['Headers', 'Params', 'Body'] as const
+const TABS = ['Headers', 'Params', 'Body', 'Auth'] as const
 type Tab = (typeof TABS)[number]
 
 interface Props {
@@ -45,19 +54,71 @@ export function RequestEditor({ request }: Props) {
     patchDraft(request.id, changes)
   }
 
+  // The URL field shows the bare URL plus enabled query params. We keep a
+  // local input buffer so that what the user types stays verbatim (including
+  // partial states like a trailing `&`) instead of being lossily re-derived
+  // from the params list on every keystroke. The buffer only refreshes from
+  // params when the change originated outside this field (Params tab edit,
+  // switching requests, etc).
+  const [urlInput, setUrlInput] = useState(() => composeUrl(local.url, local.queryParams))
+  const userEditingUrlRef = useRef(false)
+  useEffect(() => {
+    if (userEditingUrlRef.current) {
+      userEditingUrlRef.current = false
+      return
+    }
+    setUrlInput(composeUrl(local.url, local.queryParams))
+  }, [local.url, local.queryParams])
+
+  const handleUrlChange = (next: string): void => {
+    userEditingUrlRef.current = true
+    setUrlInput(next)
+    const { base, params: parsed } = decomposeUrl(next)
+    // Preserve disabled rows untouched; rewrite enabled rows to mirror the URL.
+    const disabled = local.queryParams.filter((q) => !q.enabled)
+    patch({ url: base, queryParams: [...disabled, ...parsed] })
+  }
+
+  // Intercept a cURL paste in the URL bar and treat it as an inline import —
+  // saves the user from opening the modal just because they copied a curl
+  // command from devtools.
+  const handleUrlPaste = async (e: React.ClipboardEvent<HTMLInputElement>): Promise<void> => {
+    const pasted = e.clipboardData.getData('text')
+    if (!/^\s*curl[\s'"]/i.test(pasted)) return
+    e.preventDefault()
+    try {
+      const parsed = await api.app.parseCurl(pasted)
+      patch({
+        method: parsed.method,
+        url: parsed.url,
+        headers: parsed.headers,
+        queryParams: parsed.queryParams,
+        body: parsed.body,
+        auth: parsed.auth
+      })
+    } catch {
+      // Parsing failed — fall back to the literal paste so the user doesn't
+      // lose what they had on the clipboard.
+      handleUrlChange(pasted)
+    }
+  }
+
   const handleSend = (): void => {
     // startSend's initial state set clears any prior error — no extra call needed.
     const finalUrl = applyEnvironment(local.url, env)
-    const resolvedHeaders = Object.fromEntries(
-      Object.entries(local.headers).map(([k, v]) => [k, resolveVariables(v, env)])
-    )
-    const resolvedParams = Object.fromEntries(
-      Object.entries(local.queryParams).map(([k, v]) => [k, resolveVariables(v, env)])
-    )
+    const resolvedHeaders = entriesToRecord(local.headers, env)
+    const resolvedParams = entriesToRecord(local.queryParams, env)
+    // Materialize the configured auth into an Authorization header at send
+    // time. User-typed Authorization headers still win — we only set ours
+    // when the field is empty.
+    const authHeader = buildAuthHeader(local.auth, env)
+    const finalHeaders = authHeader
+      ? { Authorization: authHeader, ...resolvedHeaders }
+      : resolvedHeaders
     void startSend(request.id, {
       method: local.method,
       url: finalUrl,
-      headers: resolvedHeaders,
+      headers: finalHeaders,
       queryParams: resolvedParams,
       body: resolveVariables(local.body, env)
     })
@@ -101,8 +162,9 @@ export function RequestEditor({ request }: Props) {
           <div className="w-px self-stretch bg-(--color-border)" />
           <input
             placeholder={env?.baseUrl ? `${env.baseUrl}/path or full URL` : 'https://...'}
-            value={local.url}
-            onChange={(e) => patch({ url: e.target.value })}
+            value={urlInput}
+            onChange={(e) => handleUrlChange(e.target.value)}
+            onPaste={(e) => void handleUrlPaste(e)}
             className="flex-1 min-w-0 h-full px-3 bg-transparent border-0 outline-none focus:outline-none text-[12.5px] font-mono placeholder:text-(--color-fg-subtle)"
           />
           {isPending ? (
@@ -173,21 +235,178 @@ export function RequestEditor({ request }: Props) {
           />
         )}
         {tab === 'Body' && (
-          <textarea
+          <JsonBodyEditor
             value={local.body}
-            onChange={(e) => patch({ body: e.target.value })}
+            onChange={(body) => patch({ body })}
             placeholder='{"key": "value"}'
-            className="w-full h-44 rounded-md border border-(--color-border) bg-(--color-bg-elev) p-2 text-[12.5px] font-mono outline-none focus:border-(--color-accent) resize-none"
           />
+        )}
+        {tab === 'Auth' && (
+          <AuthEditor auth={local.auth} onChange={(auth) => patch({ auth })} />
         )}
       </div>
     </div>
   )
 }
 
+const AUTH_TYPES: { value: RequestAuthType; label: string }[] = [
+  { value: 'none', label: 'No Auth' },
+  { value: 'bearer', label: 'Bearer Token' },
+  { value: 'basic', label: 'Basic Auth' }
+]
+
+function AuthEditor({
+  auth,
+  onChange
+}: {
+  auth: RequestAuth
+  onChange: (next: RequestAuth) => void
+}) {
+  const set = (patch: Partial<RequestAuth>): void => onChange({ ...auth, ...patch })
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold w-16">
+          Type
+        </label>
+        <div className="relative">
+          <select
+            value={auth.type}
+            onChange={(e) => set({ type: e.target.value as RequestAuthType })}
+            className="appearance-none h-7 pl-2.5 pr-7 rounded-md border border-(--color-border) bg-(--color-bg-elev) text-[12px] outline-none focus:border-(--color-accent) cursor-pointer"
+          >
+            {AUTH_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 pointer-events-none text-(--color-fg-muted)"
+            aria-hidden
+          />
+        </div>
+      </div>
+
+      {auth.type === 'none' && (
+        <div className="text-[12px] text-(--color-fg-muted)">
+          No authorization will be sent. Switch to Bearer or Basic to add an Authorization
+          header.
+        </div>
+      )}
+
+      {auth.type === 'bearer' && (
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold w-16">
+            Token
+          </label>
+          <Input
+            value={auth.token}
+            onChange={(e) => set({ token: e.target.value })}
+            placeholder="eyJhbGciOi… or {{token}}"
+            spellCheck={false}
+            className="font-mono"
+          />
+        </div>
+      )}
+
+      {auth.type === 'basic' && (
+        <>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold w-16">
+              Username
+            </label>
+            <Input
+              value={auth.username}
+              onChange={(e) => set({ username: e.target.value })}
+              placeholder="username"
+              spellCheck={false}
+              className="font-mono"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold w-16">
+              Password
+            </label>
+            <Input
+              type="password"
+              value={auth.password}
+              onChange={(e) => set({ password: e.target.value })}
+              placeholder="password"
+              spellCheck={false}
+              className="font-mono"
+            />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function buildAuthHeader(auth: RequestAuth, env: Environment | null): string | null {
+  if (auth.type === 'bearer') {
+    const token = resolveVariables(auth.token, env).trim()
+    return token ? `Bearer ${token}` : null
+  }
+  if (auth.type === 'basic') {
+    const user = resolveVariables(auth.username, env)
+    const pass = resolveVariables(auth.password, env)
+    if (!user && !pass) return null
+    return `Basic ${btoa(`${user}:${pass}`)}`
+  }
+  return null
+}
+
+// Pass-through compose/decompose: the URL field and the Params tab share the
+// same plain-text values. We deliberately don't URL-encode here — the actual
+// HTTP send path (URLSearchParams in main/ipc/http.ts) handles encoding once,
+// at the network boundary. Encoding here would cause a round-trip escalation
+// while the user is typing partial escape sequences like `%2`.
+function composeUrl(base: string, params: KvEntry[]): string {
+  const enabled = params.filter((p) => p.enabled && (p.key !== '' || p.value !== ''))
+  if (enabled.length === 0) return base
+  const qIdx = base.indexOf('?')
+  const root = qIdx >= 0 ? base.slice(0, qIdx) : base
+  // Emit `key=value` when there's a value, otherwise just `key`. This keeps
+  // round-tripping with the URL bar honest: typing `&n` shouldn't have an `=`
+  // inserted behind your cursor.
+  const qs = enabled.map((p) => (p.value !== '' ? `${p.key}=${p.value}` : p.key)).join('&')
+  return `${root}?${qs}`
+}
+
+function decomposeUrl(full: string): { base: string; params: KvEntry[] } {
+  const qIdx = full.indexOf('?')
+  if (qIdx < 0) return { base: full, params: [] }
+  const base = full.slice(0, qIdx)
+  const qs = full.slice(qIdx + 1)
+  if (qs === '') return { base, params: [] }
+  const params: KvEntry[] = []
+  for (const chunk of qs.split('&')) {
+    const eq = chunk.indexOf('=')
+    const key = eq >= 0 ? chunk.slice(0, eq) : chunk
+    const value = eq >= 0 ? chunk.slice(eq + 1) : ''
+    params.push({ key, value, enabled: true })
+  }
+  return { base, params }
+}
+
+function entriesToRecord(
+  entries: KvEntry[],
+  env: Environment | null
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const e of entries) {
+    if (!e.enabled) continue
+    if (e.key.trim() === '') continue
+    out[e.key] = resolveVariables(e.value, env)
+  }
+  return out
+}
+
 interface KvProps {
-  entries: Record<string, string>
-  onChange: (next: Record<string, string>) => void
+  entries: KvEntry[]
+  onChange: (next: KvEntry[]) => void
   placeholder: { key: string; value: string }
 }
 
@@ -195,6 +414,7 @@ interface Row {
   id: string
   key: string
   value: string
+  enabled: boolean
 }
 
 const newRowId = (): string =>
@@ -202,23 +422,21 @@ const newRowId = (): string =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2)
 
-const entriesToRows = (entries: Record<string, string>): Row[] =>
-  Object.entries(entries).map(([key, value]) => ({ id: newRowId(), key, value }))
+const entriesToRows = (entries: KvEntry[]): Row[] =>
+  entries.map((e) => ({ id: newRowId(), key: e.key, value: e.value, enabled: e.enabled }))
 
-const rowsToEntries = (rows: Row[]): Record<string, string> => {
-  const out: Record<string, string> = {}
-  for (const r of rows) {
-    if (r.key === '') continue
-    out[r.key] = r.value
-  }
-  return out
-}
+const rowsToEntries = (rows: Row[]): KvEntry[] =>
+  rows
+    .filter((r) => r.key !== '' || r.value !== '')
+    .map((r) => ({ key: r.key, value: r.value, enabled: r.enabled }))
 
-const rowsMatch = (rows: Row[], entries: Record<string, string>): boolean => {
-  const kept = rows.filter((r) => r.key !== '')
-  const keys = Object.keys(entries)
-  if (kept.length !== keys.length) return false
-  return kept.every((r) => entries[r.key] === r.value)
+const rowsMatch = (rows: Row[], entries: KvEntry[]): boolean => {
+  const collapsed = rowsToEntries(rows)
+  if (collapsed.length !== entries.length) return false
+  return collapsed.every(
+    (r, i) =>
+      r.key === entries[i].key && r.value === entries[i].value && r.enabled === entries[i].enabled
+  )
 }
 
 function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
@@ -239,8 +457,8 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
     onChange(rowsToEntries(next))
   }
 
-  const update = (id: string, key: string, value: string): void => {
-    commit(rows.map((r) => (r.id === id ? { ...r, key, value } : r)))
+  const updateField = (id: string, patch: Partial<Row>): void => {
+    commit(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)))
   }
   const remove = (id: string): void => {
     commit(rows.filter((r) => r.id !== id))
@@ -248,14 +466,15 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
   const add = (): void => {
     const id = newRowId()
     pendingFocusRef.current = id
-    commit([...rows, { id, key: '', value: '' }])
+    commit([...rows, { id, key: '', value: '', enabled: true }])
   }
 
   return (
     <div className="space-y-2">
       <div className="rounded-md border border-(--color-border) overflow-hidden">
-        <div className="grid grid-cols-[1fr_1fr_28px] bg-(--color-bg-elev)/60 border-b border-(--color-border) text-[10.5px] uppercase tracking-wider text-(--color-fg-subtle) font-medium">
-          <div className="px-2.5 py-1.5">{placeholder.key}</div>
+        <div className="grid grid-cols-[28px_1fr_1fr_28px] bg-(--color-bg-elev)/60 border-b border-(--color-border) text-[10.5px] uppercase tracking-wider text-(--color-fg-subtle) font-medium">
+          <div />
+          <div className="px-2.5 py-1.5 border-l border-(--color-border)">{placeholder.key}</div>
           <div className="px-2.5 py-1.5 border-l border-(--color-border)">{placeholder.value}</div>
           <div className="border-l border-(--color-border)" />
         </div>
@@ -267,8 +486,22 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid grid-cols-[1fr_1fr_28px] border-t border-(--color-border) first:border-t-0"
+            className={cn(
+              'grid grid-cols-[28px_1fr_1fr_28px] border-t border-(--color-border) first:border-t-0',
+              !row.enabled && 'opacity-50'
+            )}
           >
+            <label
+              className="flex items-center justify-center cursor-pointer"
+              title={row.enabled ? 'Disable row' : 'Enable row'}
+            >
+              <input
+                type="checkbox"
+                checked={row.enabled}
+                onChange={(e) => updateField(row.id, { enabled: e.target.checked })}
+                className="h-3.5 w-3.5 accent-(--color-accent) cursor-pointer"
+              />
+            </label>
             <input
               ref={(el) => {
                 if (el && pendingFocusRef.current === row.id) {
@@ -278,13 +511,13 @@ function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
               }}
               value={row.key}
               placeholder={placeholder.key}
-              onChange={(e) => update(row.id, e.target.value, row.value)}
-              className="kv-cell h-7 px-2.5 bg-transparent border-0 text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
+              onChange={(e) => updateField(row.id, { key: e.target.value })}
+              className="kv-cell h-7 px-2.5 bg-transparent border-0 border-l border-(--color-border) text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
             />
             <input
               value={row.value}
               placeholder={placeholder.value}
-              onChange={(e) => update(row.id, row.key, e.target.value)}
+              onChange={(e) => updateField(row.id, { value: e.target.value })}
               className="kv-cell h-7 px-2.5 bg-transparent border-0 border-l border-(--color-border) text-[12px] font-mono placeholder:text-(--color-fg-subtle)"
             />
             <button

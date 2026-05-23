@@ -6,6 +6,7 @@ import type {
   Environment,
   Folder,
   HttpMethod,
+  ParsedCurl,
   SendRequestInput,
   Snapshot
 } from '../shared/types'
@@ -53,7 +54,9 @@ const api = {
   },
   app: {
     getVersion: (): Promise<string> => ipcRenderer.invoke(IpcChannel.AppGetVersion),
-    openLogs: (): Promise<void> => ipcRenderer.invoke(IpcChannel.AppOpenLogs)
+    openLogs: (): Promise<void> => ipcRenderer.invoke(IpcChannel.AppOpenLogs),
+    parseCurl: (curl: string): Promise<ParsedCurl> =>
+      ipcRenderer.invoke(IpcChannel.AppParseCurl, curl)
   },
   updater: {
     check: (): Promise<void> => ipcRenderer.invoke(IpcChannel.UpdaterCheck),

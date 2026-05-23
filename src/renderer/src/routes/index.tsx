@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import { createRoute, useNavigate } from '@tanstack/react-router'
 import { FileCode2, Plus } from 'lucide-react'
 import deltaLogo from '../assets/delta-logo.svg'
 import { Button } from '../components/ui/Button'
+import { ImportCurlModal } from '../components/ImportCurlModal'
+import type { ParsedCurl } from '@shared/types'
 import { useCreateRequest, useRequests } from '../queries/requests'
 import { rootRoute } from './__root'
 
@@ -15,9 +18,23 @@ function HomePage() {
   const { data: requests = [] } = useRequests()
   const create = useCreateRequest()
   const navigate = useNavigate()
+  const [importing, setImporting] = useState(false)
 
   const handleCreate = async (): Promise<void> => {
     const req = await create.mutateAsync({ name: 'New Request', method: 'GET' })
+    navigate({ to: '/requests/$requestId', params: { requestId: req.id } })
+  }
+
+  const handleImport = async (parsed: ParsedCurl): Promise<void> => {
+    const req = await create.mutateAsync({
+      name: parsed.name,
+      method: parsed.method,
+      url: parsed.url,
+      headers: parsed.headers,
+      queryParams: parsed.queryParams,
+      body: parsed.body
+    })
+    setImporting(false)
     navigate({ to: '/requests/$requestId', params: { requestId: req.id } })
   }
 
@@ -35,11 +52,14 @@ function HomePage() {
           <Button onClick={handleCreate} disabled={create.isPending}>
             <Plus className="h-3.5 w-3.5" /> New request
           </Button>
-          <Button variant="outline" disabled>
+          <Button variant="outline" onClick={() => setImporting(true)}>
             <FileCode2 className="h-3.5 w-3.5" /> Import cURL
           </Button>
         </div>
       </div>
+      {importing && (
+        <ImportCurlModal onClose={() => setImporting(false)} onImport={handleImport} />
+      )}
     </div>
   )
 }

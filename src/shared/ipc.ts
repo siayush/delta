@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   Environment,
   Folder,
+  ParsedCurl,
   SendRequestInput,
   Snapshot
 } from './types'
@@ -32,6 +33,7 @@ export const IpcChannel = {
 
   AppGetVersion: 'app:getVersion',
   AppOpenLogs: 'app:openLogs',
+  AppParseCurl: 'app:parseCurl',
 
   UpdaterCheck: 'updater:check',
   UpdaterEvent: 'updater:event'
@@ -75,6 +77,7 @@ export interface IpcContract {
 
   [IpcChannel.AppGetVersion]: { args: []; result: string }
   [IpcChannel.AppOpenLogs]: { args: []; result: void }
+  [IpcChannel.AppParseCurl]: { args: [string]; result: ParsedCurl }
 
   [IpcChannel.UpdaterCheck]: { args: []; result: void }
 }

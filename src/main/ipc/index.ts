@@ -4,6 +4,7 @@ import { registerSnapshotsIpc } from './snapshots'
 import { registerEnvironmentsIpc } from './environments'
 import { registerHttpIpc } from './http'
 import { registerAppIpc } from './app'
+import { registerCurlIpc } from './curl'
 
 export function registerAllIpc(): void {
   registerRequestsIpc()
@@ -12,4 +13,5 @@ export function registerAllIpc(): void {
   registerEnvironmentsIpc()
   registerHttpIpc()
   registerAppIpc()
+  registerCurlIpc()
 }
