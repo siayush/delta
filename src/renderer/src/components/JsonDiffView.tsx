@@ -1,8 +1,18 @@
-import { useMemo, useRef, useState } from 'react'
-import { CodeView, type CodeViewItem } from '@pierre/diffs/react'
+import { useMemo, useState } from 'react'
+import { FileDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
 
 const THEME = 'pierre-dark-soft'
+
+// Bump the token-emphasis backgrounds so the changed-word highlight inside a
+// red/green line is actually visible. The defaults sit at ~20% alpha on top of
+// the line tint, which blends in to the point of looking line-level.
+const TOKEN_HIGHLIGHT_CSS = `
+  :host {
+    --diffs-bg-deletion-emphasis-override: rgba(255, 70, 70, 0.42);
+    --diffs-bg-addition-emphasis-override: rgba(70, 210, 120, 0.38);
+  }
+`
 
 interface Props {
   before: unknown
@@ -11,21 +21,14 @@ interface Props {
 
 export function JsonDiffView({ before, after }: Props) {
   const [view, setView] = useState<'unified' | 'split'>('unified')
-  // CodeView reuses the item record across renders when the id matches and
-  // only re-renders the diff body if `version` differs. Without a fresh
-  // version, swapping `fileDiff` is silently ignored — bump it per content
-  // change so the new diff is actually applied.
-  const versionRef = useRef(0)
 
-  const items = useMemo<CodeViewItem[]>(() => {
+  const fileDiff = useMemo(() => {
     const beforeStr = stringify(before)
     const afterStr = stringify(after)
-    const fileDiff = parseDiffFromFile(
+    return parseDiffFromFile(
       { name: 'baseline.json', contents: beforeStr },
       { name: 'current.json', contents: afterStr }
     )
-    versionRef.current += 1
-    return [{ id: 'diff', type: 'diff', fileDiff, version: versionRef.current }]
   }, [before, after])
 
   return (
@@ -49,18 +52,19 @@ export function JsonDiffView({ before, after }: Props) {
           </button>
         </div>
       </div>
-      <CodeView
-        items={items}
-        className="flex-1 min-h-0 text-[12px]"
-        disableWorkerPool
-        options={{
-          diffStyle: view,
-          disableFileHeader: true,
-          overflow: 'wrap',
-          themeType: 'dark',
-          theme: THEME
-        }}
-      />
+      <div className="flex-1 min-h-0 overflow-auto text-[12px]">
+        <FileDiff
+          fileDiff={fileDiff}
+          options={{
+            diffStyle: view,
+            disableFileHeader: true,
+            overflow: 'wrap',
+            themeType: 'dark',
+            theme: THEME,
+            unsafeCSS: TOKEN_HIGHLIGHT_CSS
+          }}
+        />
+      </div>
     </div>
   )
 }
