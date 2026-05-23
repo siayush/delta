@@ -35,6 +35,7 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
   const matches = useRouterState({ select: (s) => s.matches })
   const activeRequestId =
     matches.find((m) => m.routeId === '/requests/$requestId')?.params['requestId' as never] ?? null
+  const onSettings = matches.some((m) => m.routeId === '/settings')
 
   const [folderName, setFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -241,7 +242,13 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
       </div>
 
       <div className="p-2">
-        <button className="w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg)">
+        <button
+          onClick={() => navigate({ to: '/settings' })}
+          className={cn(
+            'w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg) cursor-pointer',
+            onSettings && 'bg-(--color-bg-active) text-(--color-fg)'
+          )}
+        >
           <SettingsIcon className="h-3.5 w-3.5" />
           Settings
         </button>

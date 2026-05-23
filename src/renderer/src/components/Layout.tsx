@@ -1,9 +1,10 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, FolderOpen, Keyboard, Plus } from 'lucide-react'
 import deltaLogo from '../assets/delta-logo.svg'
 import { Button } from './ui/Button'
 import { Sidebar } from './Sidebar'
+import { SettingsSidebar } from './SettingsSidebar'
 import { EnvironmentManager } from './EnvironmentManager'
 import { UpdaterBanner } from './UpdaterBanner'
 import { useCreateFolder, useFolders } from '../queries/folders'
@@ -16,7 +17,7 @@ interface Props {
 
 const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 
-export function Layout({ children }: Props) {
+export function Layout({ children }: Props): ReactElement {
   const navigate = useNavigate()
   const createRequest = useCreateRequest()
   const createFolder = useCreateFolder()
@@ -37,6 +38,7 @@ export function Layout({ children }: Props) {
     folders.find((f) => f.id === activeFolderId)?.name ??
     folders.find((f) => f.id === activeRequest?.folderId)?.name ??
     'Workspace'
+  const onSettings = matches.some((m) => m.routeId === '/settings')
 
   const handleNewRequest = async (): Promise<void> => {
     const req = await createRequest.mutateAsync({
@@ -66,62 +68,73 @@ export function Layout({ children }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const brandTopSlot = (
+    <div
+      className="h-11 flex items-center shrink-0 select-none"
+      style={
+        {
+          WebkitAppRegion: 'drag',
+          paddingLeft: isMac ? 78 : 12
+        } as React.CSSProperties
+      }
+    >
+      <button
+        onClick={() => navigate({ to: '/' })}
+        className="flex items-center gap-2 h-7 px-1.5 rounded-md hover:bg-(--color-bg-hover) cursor-pointer"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
+        <DeltaMark />
+        <span className="font-semibold tracking-tight text-[13px] leading-none">Delta</span>
+      </button>
+    </div>
+  )
+
   return (
     <div className="h-screen flex bg-(--color-bg) text-(--color-fg)">
-      <Sidebar
-        topSlot={
-          <div
-            className="h-11 flex items-center shrink-0 select-none"
-            style={
-              {
-                WebkitAppRegion: 'drag',
-                paddingLeft: isMac ? 78 : 12
-              } as React.CSSProperties
-            }
-          >
-            <button
-              onClick={() => navigate({ to: '/' })}
-              className="flex items-center gap-2 h-7 px-1.5 rounded-md hover:bg-(--color-bg-hover) cursor-pointer"
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            >
-              <DeltaMark />
-              <span className="font-semibold tracking-tight text-[13px] leading-none">Delta</span>
-            </button>
-          </div>
-        }
-      />
+      {onSettings ? <SettingsSidebar topSlot={brandTopSlot} /> : <Sidebar topSlot={brandTopSlot} />}
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header
           className="h-11 flex items-center shrink-0 select-none px-3 gap-1.5"
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
         >
-          <div
-            className="flex items-center gap-1.5"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <WorkspaceChip label={workspaceLabel} />
-            <EnvironmentManager />
-          </div>
+          {onSettings ? (
+            <span className="text-[13px] font-semibold">Settings</span>
+          ) : (
+            <>
+              <div
+                className="flex items-center gap-1.5"
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              >
+                <WorkspaceChip label={workspaceLabel} />
+                <EnvironmentManager />
+              </div>
 
-          <div className="flex-1" />
+              <div className="flex-1" />
 
-          <div
-            className="flex items-center gap-1"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <Button variant="ghost" size="sm" onClick={handleNewRequest} title="New request (⌘N)">
-              <Plus className="h-3.5 w-3.5" /> Add request
-            </Button>
-            <OpenMenu />
-            <Button variant="ghost" size="sm" onClick={handleNewFolder} title="New folder">
-              New folder
-            </Button>
-            <div className="w-px h-5 bg-(--color-border) mx-1" />
-            <Button variant="ghost" size="icon" title="Keyboard shortcuts">
-              <Keyboard className="h-4 w-4" />
-            </Button>
-          </div>
+              <div
+                className="flex items-center gap-1"
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNewRequest}
+                  title="New request (⌘N)"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add request
+                </Button>
+                <OpenMenu />
+                <Button variant="ghost" size="sm" onClick={handleNewFolder} title="New folder">
+                  New folder
+                </Button>
+                <div className="w-px h-5 bg-(--color-border) mx-1" />
+                <Button variant="ghost" size="icon" title="Keyboard shortcuts">
+                  <Keyboard className="h-4 w-4" />
+                </Button>
+              </div>
+            </>
+          )}
         </header>
 
         <UpdaterBanner />
@@ -132,7 +145,7 @@ export function Layout({ children }: Props) {
   )
 }
 
-function WorkspaceChip({ label }: { label: string }) {
+function WorkspaceChip({ label }: { label: string }): ReactElement {
   return (
     <span className="inline-flex items-center h-[22px] px-2 rounded-[5px] bg-(--color-input)/40 border border-(--color-border) text-[11px] text-(--color-fg) max-w-[180px] truncate">
       {label}
@@ -140,7 +153,7 @@ function WorkspaceChip({ label }: { label: string }) {
   )
 }
 
-function OpenMenu() {
+function OpenMenu(): ReactElement {
   const [open, setOpen] = useState(false)
   const { data: requests = [] } = useRequests()
   const navigate = useNavigate()
@@ -193,6 +206,6 @@ function OpenMenu() {
   )
 }
 
-function DeltaMark() {
+function DeltaMark(): ReactElement {
   return <img src={deltaLogo} alt="Delta" className="h-5 w-5" draggable={false} />
 }
