@@ -49,7 +49,7 @@ export function SettingsSidebar({ topSlot }: Props = {}): ReactElement {
         })}
       </nav>
 
-      <div className="p-2 border-t border-(--color-border)">
+      <div className="p-2">
         <button
           onClick={() => navigate({ to: '/' })}
           className="w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg) cursor-pointer"
