@@ -1,4 +1,5 @@
 import {
+  type ClipboardEvent,
   type ReactElement,
   startTransition,
   useDeferredValue,
@@ -7,7 +8,14 @@ import {
   useRef,
   useState
 } from 'react'
-import { ArrowLeftRight, ClipboardPaste, Sparkles, Trash2 } from 'lucide-react'
+import {
+  ArrowLeftRight,
+  ClipboardPaste,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+  Trash2
+} from 'lucide-react'
 import { Button } from './ui/Button'
 import { JsonDiffView } from './JsonDiffView'
 
@@ -115,7 +123,7 @@ export function CompareJsonPage(): ReactElement {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-(--color-bg)">
+    <div className="relative flex-1 flex flex-col overflow-hidden bg-(--color-bg)">
       <div className="px-4 py-3 border-b border-(--color-border) flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-[14px] font-semibold">Compare JSON</h2>
@@ -189,10 +197,10 @@ function PasteBox({
   onFormat
 }: PasteBoxProps): ReactElement {
   const toneClass = tone === 'danger' ? 'text-(--color-danger)' : 'text-(--color-success)'
+  const editorRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const committedRef = useRef(seed)
   const commitTimerRef = useRef<number | null>(null)
-  const nativePasteTimerRef = useRef<number | null>(null)
   const renderTimerRef = useRef<number | null>(null)
   const renderFrameRef = useRef<number | null>(null)
   const lineStartsRef = useRef<number[]>([])
@@ -200,9 +208,11 @@ function PasteBox({
 
   const [bytes, setBytes] = useState(seed.length)
   const [isPending, setIsPending] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [editorHeight, setEditorHeight] = useState(EDITOR_HEIGHT)
   const [highlightReady, setHighlightReady] = useState(true)
   const [renderState, setRenderState] = useState<EditorRenderState>(() =>
-    buildEditorRenderState(seed, 0, 0, lineStartsRef.current)
+    buildEditorRenderState(seed, 0, 0, lineStartsRef.current, EDITOR_HEIGHT)
   )
 
   useEffect(() => {
@@ -221,7 +231,7 @@ function PasteBox({
       commitTimerRef.current = null
     }
     lineStartsRef.current = buildLineStarts(seed)
-    setRenderState(buildEditorRenderState(seed, 0, 0, lineStartsRef.current))
+    setRenderState(buildEditorRenderState(seed, 0, 0, lineStartsRef.current, editorHeight))
     setHighlightReady(true)
     setBytes(seed.length)
     setIsPending(false)
@@ -234,11 +244,29 @@ function PasteBox({
   useEffect(() => {
     return () => {
       if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current)
-      if (nativePasteTimerRef.current !== null) window.clearTimeout(nativePasteTimerRef.current)
       if (renderTimerRef.current !== null) window.clearTimeout(renderTimerRef.current)
       if (renderFrameRef.current !== null) window.cancelAnimationFrame(renderFrameRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setFullscreen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fullscreen])
+
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    const updateHeight = (): void => setEditorHeight(editor.clientHeight || EDITOR_HEIGHT)
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(editor)
+    return () => observer.disconnect()
+  }, [fullscreen])
 
   const scheduleCommit = (fallback?: string): void => {
     if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current)
@@ -262,7 +290,8 @@ function PasteBox({
         text,
         textarea?.scrollTop ?? 0,
         textarea?.scrollLeft ?? 0,
-        lineStartsRef.current
+        lineStartsRef.current,
+        editorHeight
       )
     )
     if (rebuildLineStarts) setHighlightReady(true)
@@ -295,16 +324,20 @@ function PasteBox({
     scheduleRenderUpdate(next, true)
   }
 
-  const handleNativePaste = (): void => {
-    if (nativePasteTimerRef.current !== null) window.clearTimeout(nativePasteTimerRef.current)
-    setHighlightReady(false)
-    nativePasteTimerRef.current = window.setTimeout(() => {
-      nativePasteTimerRef.current = null
-      const next = textareaRef.current?.value ?? ''
-      syncStatus(next)
-      scheduleCommit(next)
-      scheduleRenderUpdate(next, true)
-    }, 0)
+  const handleNativePaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
+    event.preventDefault()
+    const textarea = event.currentTarget
+    const pasted = event.clipboardData.getData('text')
+    const next =
+      textarea.value.slice(0, textarea.selectionStart) +
+      pasted +
+      textarea.value.slice(textarea.selectionEnd)
+
+    textarea.value = next
+    scrollEditorToStart(textarea)
+    syncStatus(next)
+    scheduleCommit(next)
+    scheduleRenderUpdate(next, true)
   }
 
   const handleScroll = (): void => {
@@ -317,6 +350,7 @@ function PasteBox({
       const textarea = textareaRef.current
       if (textarea) {
         textarea.value = text
+        scrollEditorToStart(textarea)
         textarea.focus()
       }
       syncStatus(text)
@@ -327,11 +361,22 @@ function PasteBox({
     }
   }
 
+  useEffect(() => {
+    scheduleRenderUpdate(undefined, false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorHeight])
+
   const formattable = parsed.isJson && parsed.error === null
   const showSyntaxHighlight = highlightReady && renderState.syntaxEnabled
 
   return (
-    <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elev) flex flex-col min-h-0 focus-within:border-(--color-accent)">
+    <div
+      className={
+        fullscreen
+          ? 'absolute inset-0 z-40 flex flex-col min-h-0 bg-(--color-bg) border border-(--color-border)'
+          : 'rounded-lg border border-(--color-border) bg-(--color-bg-elev) flex flex-col min-h-0 focus-within:border-(--color-accent)'
+      }
+    >
       <div className="flex items-center justify-between px-3 h-8 border-b border-(--color-border) shrink-0">
         <div className="flex items-center gap-2">
           <span className={`text-[10.5px] uppercase tracking-wider font-semibold ${toneClass}`}>
@@ -357,9 +402,28 @@ function PasteBox({
           >
             <Sparkles className="h-3.5 w-3.5" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title={fullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+            onClick={() => setFullscreen((v) => !v)}
+          >
+            {fullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </Button>
         </div>
       </div>
-      <div className="relative h-[220px] overflow-hidden">
+      <div
+        ref={editorRef}
+        className={
+          fullscreen
+            ? 'relative flex-1 min-h-0 overflow-hidden'
+            : 'relative h-[220px] overflow-hidden'
+        }
+      >
         <div
           className="pointer-events-none absolute inset-y-0 left-0 z-30 overflow-hidden border-r border-(--color-border) bg-(--color-bg-elev) text-right font-mono text-[11px] text-(--color-fg-subtle)"
           style={{ width: renderState.gutterWidth }}
@@ -410,7 +474,7 @@ function PasteBox({
           onChange={handleInput}
           onPaste={handleNativePaste}
           onScroll={handleScroll}
-          className="relative z-20 h-[220px] w-full resize-none overflow-auto bg-transparent py-2 pr-3 font-mono text-[12px] leading-5 outline-none placeholder:text-(--color-fg-subtle)"
+          className="relative z-20 h-full w-full resize-none overflow-auto bg-transparent py-2 pr-3 font-mono text-[12px] leading-5 outline-none placeholder:text-(--color-fg-subtle)"
           style={{
             paddingLeft: renderState.gutterWidth + EDITOR_HORIZONTAL_PADDING,
             color: showSyntaxHighlight ? 'transparent' : 'var(--color-fg, #e5e7eb)',
@@ -454,14 +518,15 @@ function buildEditorRenderState(
   text: string,
   scrollTop: number,
   scrollLeft: number,
-  lineStarts: number[]
+  lineStarts: number[],
+  editorHeight: number
 ): EditorRenderState {
   const lineCount = Math.max(1, lineStarts.length)
   const contentScrollTop = Math.max(0, scrollTop - EDITOR_VERTICAL_PADDING)
   const firstVisibleLine = Math.floor(contentScrollTop / EDITOR_LINE_HEIGHT)
   const startLine = Math.max(0, firstVisibleLine - VISIBLE_LINE_OVERSCAN)
   const visibleLineCount =
-    Math.ceil(EDITOR_HEIGHT / EDITOR_LINE_HEIGHT) + VISIBLE_LINE_OVERSCAN * 2 + 1
+    Math.ceil(editorHeight / EDITOR_LINE_HEIGHT) + VISIBLE_LINE_OVERSCAN * 2 + 1
   const endLine = Math.min(lineCount, startLine + visibleLineCount)
   const lines: EditorRenderLine[] = []
   let visibleChars = 0
@@ -575,6 +640,13 @@ function isJsonKey(line: string, index: number): boolean {
   let cursor = index
   while (cursor < line.length && (line[cursor] === ' ' || line[cursor] === '\t')) cursor += 1
   return line[cursor] === ':'
+}
+
+function scrollEditorToStart(textarea: HTMLTextAreaElement | null): void {
+  if (!textarea) return
+  textarea.scrollTop = 0
+  textarea.scrollLeft = 0
+  textarea.setSelectionRange(0, 0)
 }
 
 function Status({
