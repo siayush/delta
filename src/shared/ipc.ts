@@ -22,6 +22,7 @@ export const IpcChannel = {
   SnapshotsCreate: 'snapshots:create',
   SnapshotsDelete: 'snapshots:delete',
   SnapshotsSetBaseline: 'snapshots:setBaseline',
+  SnapshotsRename: 'snapshots:rename',
 
   EnvironmentsList: 'environments:list',
   EnvironmentsCreate: 'environments:create',
@@ -61,6 +62,7 @@ export interface IpcContract {
   }
   [IpcChannel.SnapshotsDelete]: { args: [string]; result: void }
   [IpcChannel.SnapshotsSetBaseline]: { args: [string]; result: Snapshot }
+  [IpcChannel.SnapshotsRename]: { args: [string, string | null]; result: Snapshot }
 
   [IpcChannel.EnvironmentsList]: { args: []; result: Environment[] }
   [IpcChannel.EnvironmentsCreate]: {

@@ -80,6 +80,10 @@ export const ipcSchemas = {
     args: z.tuple([z.string()]),
     result: SnapshotSchema
   },
+  [IpcChannel.SnapshotsRename]: {
+    args: z.tuple([z.string(), z.string().nullable()]),
+    result: SnapshotSchema
+  },
 
   [IpcChannel.EnvironmentsList]: {
     args: Empty,

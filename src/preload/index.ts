@@ -37,7 +37,9 @@ const api = {
       ipcRenderer.invoke(IpcChannel.SnapshotsCreate, input),
     delete: (id: string): Promise<void> => ipcRenderer.invoke(IpcChannel.SnapshotsDelete, id),
     setBaseline: (id: string): Promise<Snapshot> =>
-      ipcRenderer.invoke(IpcChannel.SnapshotsSetBaseline, id)
+      ipcRenderer.invoke(IpcChannel.SnapshotsSetBaseline, id),
+    rename: (id: string, label: string | null): Promise<Snapshot> =>
+      ipcRenderer.invoke(IpcChannel.SnapshotsRename, id, label)
   },
   environments: {
     list: (): Promise<Environment[]> => ipcRenderer.invoke(IpcChannel.EnvironmentsList),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CodeView, type CodeViewItem } from '@pierre/diffs/react'
+import { File } from '@pierre/diffs/react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
 const THEME = 'pierre-dark-soft'
@@ -11,14 +11,8 @@ interface Props {
 export function JsonView({ data }: Props) {
   const [fullscreen, setFullscreen] = useState(false)
 
-  const items = useMemo<CodeViewItem[]>(
-    () => [
-      {
-        id: 'response',
-        type: 'file',
-        file: { name: 'response.json', contents: stringify(data) }
-      }
-    ],
+  const file = useMemo(
+    () => ({ name: 'response.json', contents: stringify(data) }),
     [data]
   )
 
@@ -56,8 +50,8 @@ export function JsonView({ data }: Props) {
         </button>
       </div>
       <div className="flex-1 min-h-0 overflow-auto text-[12px]">
-        <CodeView
-          items={items}
+        <File
+          file={file}
           disableWorkerPool
           options={{
             disableFileHeader: true,

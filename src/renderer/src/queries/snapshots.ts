@@ -40,3 +40,17 @@ export function useSetBaseline(requestId: string | null) {
     }
   })
 }
+
+export function useRenameSnapshot(requestId: string | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string | null }) =>
+      api.snapshots.rename(id, label),
+    onSuccess: () => {
+      if (requestId) qc.invalidateQueries({ queryKey: queryKeys.snapshots(requestId) })
+    },
+    onError: (err) => {
+      console.error('[snapshots.rename] failed:', err)
+    }
+  })
+}

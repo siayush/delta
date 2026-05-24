@@ -16,8 +16,39 @@ import {
   Sparkles,
   Trash2
 } from 'lucide-react'
+import { getHighlighterIfLoaded, getSharedHighlighter, type ThemedToken } from '@pierre/diffs'
 import { Button } from './ui/Button'
 import { JsonDiffView } from './JsonDiffView'
+
+const SHIKI_THEME = 'pierre-dark-soft'
+const SHIKI_LANG = 'json'
+
+// Re-renders the caller once the shared Shiki highlighter resolves so the
+// overlay can switch from the regex fallback to themed tokens.
+function useShikiReady(): boolean {
+  const [ready, setReady] = useState(() => getHighlighterIfLoaded() != null)
+  useEffect(() => {
+    if (ready) return
+    let cancelled = false
+    void getSharedHighlighter({ themes: [SHIKI_THEME], langs: [SHIKI_LANG] }).then(() => {
+      if (!cancelled) setReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [ready])
+  return ready
+}
+
+function tokenizeLinesWithShiki(lines: string[]): ThemedToken[][] | null {
+  const h = getHighlighterIfLoaded()
+  if (!h) return null
+  try {
+    return h.codeToTokensBase(lines.join('\n'), { lang: SHIKI_LANG, theme: SHIKI_THEME })
+  } catch {
+    return null
+  }
+}
 
 interface ParseResult {
   value: unknown
@@ -52,21 +83,6 @@ interface EditorRenderState {
   lines: EditorRenderLine[]
 }
 
-type JsonTokenType = 'plain' | 'key' | 'string' | 'number' | 'literal' | 'punctuation'
-
-interface JsonToken {
-  text: string
-  type: JsonTokenType
-}
-
-const tokenClassByType: Record<JsonTokenType, string> = {
-  plain: 'text-(--color-fg)',
-  key: 'text-sky-300',
-  string: 'text-orange-300',
-  number: 'text-emerald-300',
-  literal: 'text-violet-300',
-  punctuation: 'text-(--color-fg-muted)'
-}
 
 export function CompareJsonPage(): ReactElement {
   const [left, setLeft] = useState('')
@@ -367,7 +383,13 @@ function PasteBox({
   }, [editorHeight])
 
   const formattable = parsed.isJson && parsed.error === null
-  const showSyntaxHighlight = highlightReady && renderState.syntaxEnabled
+  const shikiReady = useShikiReady()
+  const canHighlight = highlightReady && renderState.syntaxEnabled && shikiReady
+  const shikiLineTokens = useMemo(
+    () => (canHighlight ? tokenizeLinesWithShiki(renderState.lines.map((l) => l.text)) : null),
+    [canHighlight, renderState.lines]
+  )
+  const showSyntaxHighlight = canHighlight && shikiLineTokens !== null
 
   return (
     <div
@@ -454,13 +476,13 @@ function PasteBox({
                 tabSize: 2
               }}
             >
-              {renderState.lines.map((line) => (
+              {renderState.lines.map((line, index) => (
                 <div
                   key={line.number}
                   className="whitespace-pre"
                   style={{ height: EDITOR_LINE_HEIGHT, lineHeight: `${EDITOR_LINE_HEIGHT}px` }}
                 >
-                  <HighlightedJsonLine text={line.text} />
+                  <HighlightedJsonLine tokens={shikiLineTokens?.[index] ?? []} />
                 </div>
               ))}
             </div>
@@ -494,12 +516,12 @@ function PasteBox({
   )
 }
 
-function HighlightedJsonLine({ text }: { text: string }): ReactElement {
+function HighlightedJsonLine({ tokens }: { tokens: ThemedToken[] }): ReactElement {
   return (
     <>
-      {tokenizeJsonLine(text).map((token, index) => (
-        <span key={index} className={tokenClassByType[token.type]}>
-          {token.text}
+      {tokens.map((token, index) => (
+        <span key={index} style={{ color: token.color }}>
+          {token.content}
         </span>
       ))}
     </>
@@ -562,84 +584,6 @@ function getLineEnd(text: string, lineStarts: number[], lineIndex: number): numb
   if (lineEnd > 0 && text.charCodeAt(lineEnd - 1) === 10) lineEnd -= 1
   if (lineEnd > 0 && text.charCodeAt(lineEnd - 1) === 13) lineEnd -= 1
   return lineEnd
-}
-
-function tokenizeJsonLine(line: string): JsonToken[] {
-  const tokens: JsonToken[] = []
-  let index = 0
-
-  while (index < line.length) {
-    const char = line[index]
-
-    if (char === ' ' || char === '\t') {
-      const start = index
-      while (index < line.length && (line[index] === ' ' || line[index] === '\t')) index += 1
-      tokens.push({ text: line.slice(start, index), type: 'plain' })
-      continue
-    }
-
-    if (char === '"') {
-      const start = index
-      index += 1
-      let escaped = false
-      while (index < line.length) {
-        const current = line[index]
-        index += 1
-        if (escaped) {
-          escaped = false
-        } else if (current === '\\') {
-          escaped = true
-        } else if (current === '"') {
-          break
-        }
-      }
-      tokens.push({
-        text: line.slice(start, index),
-        type: isJsonKey(line, index) ? 'key' : 'string'
-      })
-      continue
-    }
-
-    const numberMatch = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(line.slice(index))
-    if (numberMatch) {
-      const value = numberMatch[0]
-      tokens.push({ text: value, type: 'number' })
-      index += value.length
-      continue
-    }
-
-    if (
-      line.startsWith('true', index) ||
-      line.startsWith('false', index) ||
-      line.startsWith('null', index)
-    ) {
-      const value = line.startsWith('false', index)
-        ? 'false'
-        : line.startsWith('true', index)
-          ? 'true'
-          : 'null'
-      tokens.push({ text: value, type: 'literal' })
-      index += value.length
-      continue
-    }
-
-    if ('{}[]:,'.includes(char)) {
-      tokens.push({ text: char, type: 'punctuation' })
-      index += 1
-      continue
-    }
-
-    tokens.push({ text: char, type: 'plain' })
-    index += 1
-  }
-
-  return tokens
-}
-
-function isJsonKey(line: string, index: number): boolean {
-  let cursor = index
-  while (cursor < line.length && (line[cursor] === ' ' || line[cursor] === '\t')) cursor += 1
-  return line[cursor] === ':'
 }
 
 function scrollEditorToStart(textarea: HTMLTextAreaElement | null): void {
