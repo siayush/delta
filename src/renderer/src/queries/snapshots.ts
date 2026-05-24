@@ -1,9 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult
+} from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { queryKeys } from './keys'
 import type { Snapshot } from '@shared/types'
 
-export function useSnapshots(requestId: string | null) {
+export function useSnapshots(requestId: string | null): UseQueryResult<Snapshot[], Error> {
   return useQuery({
     queryKey: queryKeys.snapshots(requestId ?? ''),
     queryFn: () => (requestId ? api.snapshots.list(requestId) : Promise.resolve([])),
@@ -11,7 +17,9 @@ export function useSnapshots(requestId: string | null) {
   })
 }
 
-export function useCreateSnapshot(requestId: string | null) {
+export function useCreateSnapshot(
+  requestId: string | null
+): UseMutationResult<Snapshot, Error, Omit<Snapshot, 'id' | 'createdAt'>> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: Omit<Snapshot, 'id' | 'createdAt'>) => api.snapshots.create(input),
@@ -21,7 +29,9 @@ export function useCreateSnapshot(requestId: string | null) {
   })
 }
 
-export function useDeleteSnapshot(requestId: string | null) {
+export function useDeleteSnapshot(
+  requestId: string | null
+): UseMutationResult<void, Error, string> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.snapshots.delete(id),
@@ -31,12 +41,30 @@ export function useDeleteSnapshot(requestId: string | null) {
   })
 }
 
-export function useSetBaseline(requestId: string | null) {
+export function useSetBaseline(
+  requestId: string | null
+): UseMutationResult<Snapshot, Error, string> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.snapshots.setBaseline(id),
     onSuccess: () => {
       if (requestId) qc.invalidateQueries({ queryKey: queryKeys.snapshots(requestId) })
+    }
+  })
+}
+
+export function useRenameSnapshot(
+  requestId: string | null
+): UseMutationResult<Snapshot, Error, { id: string; label: string | null }> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string | null }) =>
+      api.snapshots.rename(id, label),
+    onSuccess: () => {
+      if (requestId) qc.invalidateQueries({ queryKey: queryKeys.snapshots(requestId) })
+    },
+    onError: (err) => {
+      console.error('[snapshots.rename] failed:', err)
     }
   })
 }

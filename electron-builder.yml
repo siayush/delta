@@ -1,17 +1,29 @@
 appId: com.delta.desktop
 productName: Delta
+compression: maximum
+afterPack: build/afterPack.js
 directories:
   buildResources: build
+electronLanguages:
+  - en
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-asarUnpack:
+  - out/**
   - resources/**
-  - '**/node_modules/better-sqlite3/**'
+  - package.json
+  - '!**/*.map'
+  - '!**/*.ts'
+  - '!**/*.tsx'
+  - '!**/test{,s}/**'
+  - '!**/__tests__/**'
+  - '!**/docs/**'
+  - '!**/example{,s}/**'
+  - '!**/*.md'
+  - '!generate-json.js'
+  - '!plans/**'
+  - '!**/node_modules/better-sqlite3/deps/**'
+  - '!**/node_modules/better-sqlite3/src/**'
+asarUnpack:
+  - '**/*.node'
 win:
   executableName: Delta
 nsis:
@@ -36,7 +48,7 @@ linux:
   category: Development
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: true
+npmRebuild: false
 publish:
   provider: generic
   url: https://example.com/delta/updates

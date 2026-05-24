@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
-import type { ApiRequest, HttpMethod } from '@shared/types'
+import type { ApiRequest, HttpMethod, RequestAuth } from '@shared/types'
+import { DEFAULT_REQUEST_AUTH, RequestAuthSchema } from '@shared/schemas'
 import { getDb } from '../index'
 
 interface Row {
@@ -10,9 +11,19 @@ interface Row {
   headers: string
   query_params: string
   body: string
+  auth: string | null
   folder_id: string | null
   created_at: number
   updated_at: number
+}
+
+function parseAuth(raw: string | null): RequestAuth {
+  if (!raw) return DEFAULT_REQUEST_AUTH
+  try {
+    return RequestAuthSchema.parse(JSON.parse(raw))
+  } catch {
+    return DEFAULT_REQUEST_AUTH
+  }
 }
 
 function rowToRequest(r: Row): ApiRequest {
@@ -24,6 +35,7 @@ function rowToRequest(r: Row): ApiRequest {
     headers: JSON.parse(r.headers),
     queryParams: JSON.parse(r.query_params),
     body: r.body,
+    auth: parseAuth(r.auth),
     folderId: r.folder_id,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -32,9 +44,7 @@ function rowToRequest(r: Row): ApiRequest {
 
 export const requestsRepo = {
   list(): ApiRequest[] {
-    const rows = getDb()
-      .prepare<[], Row>(`SELECT * FROM requests ORDER BY updated_at DESC`)
-      .all()
+    const rows = getDb().prepare<[], Row>(`SELECT * FROM requests ORDER BY updated_at DESC`).all()
     return rows.map(rowToRequest)
   },
 
@@ -50,17 +60,18 @@ export const requestsRepo = {
       name: input.name,
       method: input.method,
       url: input.url ?? '',
-      headers: input.headers ?? {},
-      queryParams: input.queryParams ?? {},
+      headers: input.headers ?? [],
+      queryParams: input.queryParams ?? [],
       body: input.body ?? '',
+      auth: input.auth ?? DEFAULT_REQUEST_AUTH,
       folderId: input.folderId ?? null,
       createdAt: now,
       updatedAt: now
     }
     getDb()
       .prepare(
-        `INSERT INTO requests (id, name, method, url, headers, query_params, body, folder_id, created_at, updated_at)
-         VALUES (@id, @name, @method, @url, @headers, @query_params, @body, @folder_id, @created_at, @updated_at)`
+        `INSERT INTO requests (id, name, method, url, headers, query_params, body, auth, folder_id, created_at, updated_at)
+         VALUES (@id, @name, @method, @url, @headers, @query_params, @body, @auth, @folder_id, @created_at, @updated_at)`
       )
       .run({
         id: req.id,
@@ -70,6 +81,7 @@ export const requestsRepo = {
         headers: JSON.stringify(req.headers),
         query_params: JSON.stringify(req.queryParams),
         body: req.body,
+        auth: JSON.stringify(req.auth),
         folder_id: req.folderId,
         created_at: req.createdAt,
         updated_at: req.updatedAt
@@ -85,13 +97,14 @@ export const requestsRepo = {
       ...patch,
       headers: patch.headers ?? existing.headers,
       queryParams: patch.queryParams ?? existing.queryParams,
+      auth: patch.auth ?? existing.auth,
       updatedAt: Date.now()
     }
     getDb()
       .prepare(
         `UPDATE requests SET
            name = @name, method = @method, url = @url,
-           headers = @headers, query_params = @query_params, body = @body,
+           headers = @headers, query_params = @query_params, body = @body, auth = @auth,
            folder_id = @folder_id, updated_at = @updated_at
          WHERE id = @id`
       )
@@ -103,6 +116,7 @@ export const requestsRepo = {
         headers: JSON.stringify(merged.headers),
         query_params: JSON.stringify(merged.queryParams),
         body: merged.body,
+        auth: JSON.stringify(merged.auth),
         folder_id: merged.folderId ?? null,
         updated_at: merged.updatedAt
       })

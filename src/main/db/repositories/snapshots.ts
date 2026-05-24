@@ -27,9 +27,10 @@ function rowToSnapshot(r: Row): Snapshot {
 export const snapshotsRepo = {
   listForRequest(requestId: string): Snapshot[] {
     return getDb()
-      .prepare<[string], Row>(
-        `SELECT * FROM snapshots WHERE request_id = ? ORDER BY created_at DESC`
-      )
+      .prepare<
+        [string],
+        Row
+      >(`SELECT * FROM snapshots WHERE request_id = ? ORDER BY created_at DESC`)
       .all(requestId)
       .map(rowToSnapshot)
   },
@@ -77,5 +78,13 @@ export const snapshotsRepo = {
 
   delete(id: string): void {
     getDb().prepare(`DELETE FROM snapshots WHERE id = ?`).run(id)
+  },
+
+  rename(id: string, label: string | null): Snapshot {
+    const db = getDb()
+    const snap = this.get(id)
+    if (!snap) throw new Error(`Snapshot ${id} not found`)
+    db.prepare(`UPDATE snapshots SET label = ? WHERE id = ?`).run(label, id)
+    return { ...snap, label }
   }
 }

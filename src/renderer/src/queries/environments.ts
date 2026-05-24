@@ -1,16 +1,26 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult
+} from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { queryKeys } from './keys'
 import type { Environment } from '@shared/types'
 
-export function useEnvironments() {
+export function useEnvironments(): UseQueryResult<Environment[], Error> {
   return useQuery({
     queryKey: queryKeys.environments,
     queryFn: () => api.environments.list()
   })
 }
 
-export function useCreateEnvironment() {
+export function useCreateEnvironment(): UseMutationResult<
+  Environment,
+  Error,
+  Omit<Environment, 'id' | 'createdAt'>
+> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: Omit<Environment, 'id' | 'createdAt'>) => api.environments.create(input),
@@ -18,7 +28,11 @@ export function useCreateEnvironment() {
   })
 }
 
-export function useUpdateEnvironment() {
+export function useUpdateEnvironment(): UseMutationResult<
+  Environment,
+  Error,
+  { id: string; patch: Partial<Environment> }
+> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Environment> }) =>
@@ -27,7 +41,7 @@ export function useUpdateEnvironment() {
   })
 }
 
-export function useDeleteEnvironment() {
+export function useDeleteEnvironment(): UseMutationResult<void, Error, string> {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => api.environments.delete(id),

@@ -4,14 +4,38 @@ export const HttpMethodSchema = z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE',
 
 const StringRecord = z.record(z.string(), z.string())
 
+export const KvEntrySchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  enabled: z.boolean()
+})
+export const KvEntryListSchema = z.array(KvEntrySchema)
+
+export const RequestAuthTypeSchema = z.enum(['none', 'bearer', 'basic'])
+
+export const RequestAuthSchema = z.object({
+  type: RequestAuthTypeSchema,
+  token: z.string().default(''),
+  username: z.string().default(''),
+  password: z.string().default('')
+})
+
+export const DEFAULT_REQUEST_AUTH = {
+  type: 'none' as const,
+  token: '',
+  username: '',
+  password: ''
+}
+
 export const ApiRequestSchema = z.object({
   id: z.string(),
   name: z.string(),
   method: HttpMethodSchema,
   url: z.string(),
-  headers: StringRecord,
-  queryParams: StringRecord,
+  headers: KvEntryListSchema,
+  queryParams: KvEntryListSchema,
   body: z.string(),
+  auth: RequestAuthSchema,
   folderId: z.string().nullable().optional(),
   createdAt: z.number(),
   updatedAt: z.number()

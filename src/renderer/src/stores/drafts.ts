@@ -37,6 +37,7 @@ const persist = (draft: ApiRequest): void => {
       headers: draft.headers,
       queryParams: draft.queryParams,
       body: draft.body,
+      auth: draft.auth,
       folderId: draft.folderId
     })
     .catch(() => {

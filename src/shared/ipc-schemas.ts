@@ -7,10 +7,23 @@ import {
   EnvironmentCreateInputSchema,
   EnvironmentSchema,
   FolderSchema,
+  HttpMethodSchema,
+  KvEntryListSchema,
+  RequestAuthSchema,
   SendRequestInputSchema,
   SnapshotCreateInputSchema,
   SnapshotSchema
 } from './schemas'
+
+const ParsedCurlSchema = z.object({
+  name: z.string(),
+  method: HttpMethodSchema,
+  url: z.string(),
+  headers: KvEntryListSchema,
+  queryParams: KvEntryListSchema,
+  body: z.string(),
+  auth: RequestAuthSchema
+})
 
 const Empty = z.tuple([])
 
@@ -67,6 +80,10 @@ export const ipcSchemas = {
     args: z.tuple([z.string()]),
     result: SnapshotSchema
   },
+  [IpcChannel.SnapshotsRename]: {
+    args: z.tuple([z.string(), z.string().nullable()]),
+    result: SnapshotSchema
+  },
 
   [IpcChannel.EnvironmentsList]: {
     args: Empty,
@@ -101,6 +118,10 @@ export const ipcSchemas = {
   [IpcChannel.AppOpenLogs]: {
     args: Empty,
     result: z.void()
+  },
+  [IpcChannel.AppParseCurl]: {
+    args: z.tuple([z.string()]),
+    result: ParsedCurlSchema
   },
 
   [IpcChannel.UpdaterCheck]: {

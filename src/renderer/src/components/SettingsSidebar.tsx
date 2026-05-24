@@ -1,6 +1,6 @@
 import { type ReactElement, type ReactNode } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { ArrowLeft, Info, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, Gauge, Info, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 interface NavItem {
@@ -11,7 +11,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { id: 'about', label: 'About', to: '/settings', icon: Info }
+  { id: 'about', label: 'About', to: '/settings', icon: Info },
+  { id: 'benchmark', label: 'Benchmark', to: '/settings/benchmark', icon: Gauge }
 ]
 
 interface Props {

@@ -10,9 +10,7 @@ interface Row {
 
 export const foldersRepo = {
   list(): Folder[] {
-    const rows = getDb()
-      .prepare<[], Row>(`SELECT * FROM folders ORDER BY created_at DESC`)
-      .all()
+    const rows = getDb().prepare<[], Row>(`SELECT * FROM folders ORDER BY created_at DESC`).all()
     return rows.map((r) => ({ id: r.id, name: r.name, createdAt: r.created_at }))
   },
 

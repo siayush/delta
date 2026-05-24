@@ -11,4 +11,5 @@ export function registerSnapshotsIpc(): void {
     snapshotsRepo.delete(id)
   })
   registerHandler(IpcChannel.SnapshotsSetBaseline, (_evt, id) => snapshotsRepo.setBaseline(id))
+  registerHandler(IpcChannel.SnapshotsRename, (_evt, id, label) => snapshotsRepo.rename(id, label))
 }

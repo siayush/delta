@@ -3,6 +3,7 @@ import type {
   ApiResponse,
   Environment,
   Folder,
+  ParsedCurl,
   SendRequestInput,
   Snapshot
 } from './types'
@@ -21,6 +22,7 @@ export const IpcChannel = {
   SnapshotsCreate: 'snapshots:create',
   SnapshotsDelete: 'snapshots:delete',
   SnapshotsSetBaseline: 'snapshots:setBaseline',
+  SnapshotsRename: 'snapshots:rename',
 
   EnvironmentsList: 'environments:list',
   EnvironmentsCreate: 'environments:create',
@@ -32,6 +34,7 @@ export const IpcChannel = {
 
   AppGetVersion: 'app:getVersion',
   AppOpenLogs: 'app:openLogs',
+  AppParseCurl: 'app:parseCurl',
 
   UpdaterCheck: 'updater:check',
   UpdaterEvent: 'updater:event'
@@ -59,6 +62,7 @@ export interface IpcContract {
   }
   [IpcChannel.SnapshotsDelete]: { args: [string]; result: void }
   [IpcChannel.SnapshotsSetBaseline]: { args: [string]; result: Snapshot }
+  [IpcChannel.SnapshotsRename]: { args: [string, string | null]; result: Snapshot }
 
   [IpcChannel.EnvironmentsList]: { args: []; result: Environment[] }
   [IpcChannel.EnvironmentsCreate]: {
@@ -75,6 +79,7 @@ export interface IpcContract {
 
   [IpcChannel.AppGetVersion]: { args: []; result: string }
   [IpcChannel.AppOpenLogs]: { args: []; result: void }
+  [IpcChannel.AppParseCurl]: { args: [string]; result: ParsedCurl }
 
   [IpcChannel.UpdaterCheck]: { args: []; result: void }
 }

@@ -1,10 +1,11 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   ArrowUpDown,
   ChevronRight,
   Folder,
   FolderPlus,
+  GitCompare,
   Plus,
   Search,
   Settings as SettingsIcon,
@@ -25,7 +26,7 @@ interface SidebarProps {
   topSlot?: ReactNode
 }
 
-export function Sidebar({ topSlot }: SidebarProps = {}) {
+export function Sidebar({ topSlot }: SidebarProps = {}): ReactElement {
   const { data: requests = [] } = useRequests()
   const { data: folders = [] } = useFolders()
   const createRequest = useCreateRequest()
@@ -36,6 +37,7 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
   const activeRequestId =
     matches.find((m) => m.routeId === '/requests/$requestId')?.params['requestId' as never] ?? null
   const onSettings = matches.some((m) => m.routeId === '/settings')
+  const onCompare = matches.some((m) => m.routeId === '/compare')
 
   const [folderName, setFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -60,7 +62,9 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
   const matchesQuery = (text: string | undefined): boolean =>
     !q || (text ?? '').toLowerCase().includes(q)
 
-  const sortRequests = <T extends { name?: string | null; updatedAt?: number }>(items: T[]): T[] => {
+  const sortRequests = <T extends { name?: string | null; updatedAt?: number }>(
+    items: T[]
+  ): T[] => {
     if (sortMode === 'name') {
       return [...items].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
     }
@@ -120,7 +124,11 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
             variant="ghost"
             size="icon"
             onClick={() => setSortMode((m) => (m === 'recent' ? 'name' : 'recent'))}
-            title={sortMode === 'recent' ? 'Sorted by recent — click for name' : 'Sorted by name — click for recent'}
+            title={
+              sortMode === 'recent'
+                ? 'Sorted by recent — click for name'
+                : 'Sorted by name — click for recent'
+            }
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
           </Button>
@@ -231,17 +239,30 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
           </div>
         )}
 
-        {q && unfiled.length === 0 && sortedFolders.every((f) =>
-          requests.filter((r) => r.folderId === f.id && matchesQuery(r.name)).length === 0 &&
-          !matchesQuery(f.name)
-        ) && (
-          <div className="text-[12px] text-(--color-fg-muted) px-2 py-4 text-center">
-            No matches.
-          </div>
-        )}
+        {q &&
+          unfiled.length === 0 &&
+          sortedFolders.every(
+            (f) =>
+              requests.filter((r) => r.folderId === f.id && matchesQuery(r.name)).length === 0 &&
+              !matchesQuery(f.name)
+          ) && (
+            <div className="text-[12px] text-(--color-fg-muted) px-2 py-4 text-center">
+              No matches.
+            </div>
+          )}
       </div>
 
-      <div className="p-2">
+      <div className="p-2 space-y-0.5">
+        <button
+          onClick={() => navigate({ to: '/compare' })}
+          className={cn(
+            'w-full h-8 px-2 flex items-center gap-2 rounded-md text-[12.5px] text-(--color-fg-muted) hover:bg-(--color-bg-hover) hover:text-(--color-fg) cursor-pointer',
+            onCompare && 'bg-(--color-bg-active) text-(--color-fg)'
+          )}
+        >
+          <GitCompare className="h-3.5 w-3.5" />
+          Compare JSON
+        </button>
         <button
           onClick={() => navigate({ to: '/settings' })}
           className={cn(
@@ -263,7 +284,7 @@ interface RowProps {
   onDelete: () => void
 }
 
-function RequestRow({ request, active, onDelete }: RowProps) {
+function RequestRow({ request, active, onDelete }: RowProps): ReactElement {
   const methodLabel = methodShortLabel(request.method)
   const isPending = useIsPending(request.id)
   return (

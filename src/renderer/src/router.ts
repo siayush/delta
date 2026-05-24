@@ -4,8 +4,17 @@ import { indexRoute } from './routes/index'
 import { requestRoute } from './routes/requests.$requestId'
 import { folderRoute } from './routes/folders.$folderId'
 import { settingsRoute } from './routes/settings'
+import { benchmarkRoute } from './routes/benchmark'
+import { compareRoute } from './routes/compare'
 
-const routeTree = rootRoute.addChildren([indexRoute, requestRoute, folderRoute, settingsRoute])
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  requestRoute,
+  folderRoute,
+  settingsRoute,
+  benchmarkRoute,
+  compareRoute
+])
 
 export const router = createRouter({
   routeTree,

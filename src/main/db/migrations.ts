@@ -19,9 +19,10 @@ const migrations: Migration[] = [
           name TEXT NOT NULL,
           method TEXT NOT NULL,
           url TEXT NOT NULL,
-          headers TEXT NOT NULL DEFAULT '{}',
-          query_params TEXT NOT NULL DEFAULT '{}',
+          headers TEXT NOT NULL DEFAULT '[]',
+          query_params TEXT NOT NULL DEFAULT '[]',
           body TEXT NOT NULL DEFAULT '',
+          auth TEXT NOT NULL DEFAULT '{"type":"none","token":"","username":"","password":""}',
           folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL
@@ -58,7 +59,10 @@ const migrations: Migration[] = [
 export function runMigrations(db: Database.Database): void {
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY)`)
   const applied = new Set(
-    db.prepare<[], { version: number }>(`SELECT version FROM _migrations`).all().map((r) => r.version)
+    db
+      .prepare<[], { version: number }>(`SELECT version FROM _migrations`)
+      .all()
+      .map((r) => r.version)
   )
   const insertVersion = db.prepare(`INSERT INTO _migrations (version) VALUES (?)`)
 

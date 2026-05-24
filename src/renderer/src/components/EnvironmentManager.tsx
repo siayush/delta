@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { ChevronDown, Layers, Plus, Trash2 } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
@@ -11,7 +11,7 @@ import {
 import { useUiStore } from '../stores/ui'
 import { cn } from '../lib/utils'
 
-export function EnvironmentManager() {
+export function EnvironmentManager(): ReactElement {
   const { data: envs = [] } = useEnvironments()
   const create = useCreateEnvironment()
   const update = useUpdateEnvironment()
@@ -25,15 +25,7 @@ export function EnvironmentManager() {
 
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          'h-[22px] px-2 rounded-[5px] inline-flex items-center gap-1.5 text-[11px] border bg-(--color-input)/40 hover:bg-(--color-input)/60',
-          active
-            ? 'border-(--color-border) text-(--color-fg)'
-            : 'border-(--color-warn)/30 text-(--color-warn-fg)'
-        )}
-      >
+      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)} title="Environment">
         {active ? (
           <>
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: active.color }} />
@@ -41,17 +33,17 @@ export function EnvironmentManager() {
           </>
         ) : (
           <>
-            <Layers className="h-3 w-3" />
+            <Layers className="h-3.5 w-3.5" />
             <span>No environment</span>
           </>
         )}
         <ChevronDown className="h-3 w-3 opacity-70" />
-      </button>
+      </Button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1.5 w-80 rounded-lg border border-(--color-border) bg-(--color-bg-elev) shadow-xl z-20 p-2">
+          <div className="absolute right-0 top-full mt-1.5 w-80 rounded-lg border border-(--color-border) bg-(--color-bg-elev) shadow-xl z-20 p-2">
             <button
               onClick={() => setActiveId(null)}
               className={cn(
@@ -130,11 +122,24 @@ export function EnvironmentManager() {
 interface EditProps {
   envId: string
   onClose: () => void
-  onSave: (id: string, patch: Partial<{ name: string; baseUrl: string; color: string; variables: Record<string, string> }>) => void
+  onSave: (
+    id: string,
+    patch: Partial<{
+      name: string
+      baseUrl: string
+      color: string
+      variables: Record<string, string>
+    }>
+  ) => void
   onDelete: (id: string) => void
 }
 
-function EnvironmentEditModal({ envId, onClose, onSave, onDelete }: EditProps) {
+function EnvironmentEditModal({
+  envId,
+  onClose,
+  onSave,
+  onDelete
+}: EditProps): ReactElement | null {
   const { data: envs = [] } = useEnvironments()
   const env = envs.find((e) => e.id === envId)
   if (!env) return null
@@ -159,7 +164,10 @@ function EnvironmentEditModal({ envId, onClose, onSave, onDelete }: EditProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onClose}
+    >
       <div
         className="w-[480px] rounded-xl border border-(--color-border) bg-(--color-bg-elev) shadow-2xl"
         onClick={(e) => e.stopPropagation()}
