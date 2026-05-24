@@ -93,9 +93,7 @@ export function BenchmarkPage(): ReactElement {
 
     for (let i = 0; i < queue.length; i++) {
       if (cancelRef.current) {
-        setRows((prev) =>
-          prev.map((r, idx) => (idx >= i ? { ...r, status: 'cancelled' } : r))
-        )
+        setRows((prev) => prev.map((r, idx) => (idx >= i ? { ...r, status: 'cancelled' } : r)))
         break
       }
       const cfg = queue[i]
@@ -105,9 +103,7 @@ export function BenchmarkPage(): ReactElement {
         setRows((prev) => prev.map((r, idx) => (idx === i ? result : r)))
       } catch (e) {
         if (e instanceof CancelledError || cancelRef.current) {
-          setRows((prev) =>
-            prev.map((r, idx) => (idx >= i ? { ...r, status: 'cancelled' } : r))
-          )
+          setRows((prev) => prev.map((r, idx) => (idx >= i ? { ...r, status: 'cancelled' } : r)))
           break
         }
         const message = e instanceof Error ? e.message : String(e)

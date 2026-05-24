@@ -59,7 +59,10 @@ const migrations: Migration[] = [
 export function runMigrations(db: Database.Database): void {
   db.exec(`CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY)`)
   const applied = new Set(
-    db.prepare<[], { version: number }>(`SELECT version FROM _migrations`).all().map((r) => r.version)
+    db
+      .prepare<[], { version: number }>(`SELECT version FROM _migrations`)
+      .all()
+      .map((r) => r.version)
   )
   const insertVersion = db.prepare(`INSERT INTO _migrations (version) VALUES (?)`)
 

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import {
   ArrowUpDown,
@@ -26,7 +26,7 @@ interface SidebarProps {
   topSlot?: ReactNode
 }
 
-export function Sidebar({ topSlot }: SidebarProps = {}) {
+export function Sidebar({ topSlot }: SidebarProps = {}): ReactElement {
   const { data: requests = [] } = useRequests()
   const { data: folders = [] } = useFolders()
   const createRequest = useCreateRequest()
@@ -62,7 +62,9 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
   const matchesQuery = (text: string | undefined): boolean =>
     !q || (text ?? '').toLowerCase().includes(q)
 
-  const sortRequests = <T extends { name?: string | null; updatedAt?: number }>(items: T[]): T[] => {
+  const sortRequests = <T extends { name?: string | null; updatedAt?: number }>(
+    items: T[]
+  ): T[] => {
     if (sortMode === 'name') {
       return [...items].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
     }
@@ -122,7 +124,11 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
             variant="ghost"
             size="icon"
             onClick={() => setSortMode((m) => (m === 'recent' ? 'name' : 'recent'))}
-            title={sortMode === 'recent' ? 'Sorted by recent — click for name' : 'Sorted by name — click for recent'}
+            title={
+              sortMode === 'recent'
+                ? 'Sorted by recent — click for name'
+                : 'Sorted by name — click for recent'
+            }
           >
             <ArrowUpDown className="h-3.5 w-3.5" />
           </Button>
@@ -233,14 +239,17 @@ export function Sidebar({ topSlot }: SidebarProps = {}) {
           </div>
         )}
 
-        {q && unfiled.length === 0 && sortedFolders.every((f) =>
-          requests.filter((r) => r.folderId === f.id && matchesQuery(r.name)).length === 0 &&
-          !matchesQuery(f.name)
-        ) && (
-          <div className="text-[12px] text-(--color-fg-muted) px-2 py-4 text-center">
-            No matches.
-          </div>
-        )}
+        {q &&
+          unfiled.length === 0 &&
+          sortedFolders.every(
+            (f) =>
+              requests.filter((r) => r.folderId === f.id && matchesQuery(r.name)).length === 0 &&
+              !matchesQuery(f.name)
+          ) && (
+            <div className="text-[12px] text-(--color-fg-muted) px-2 py-4 text-center">
+              No matches.
+            </div>
+          )}
       </div>
 
       <div className="p-2 space-y-0.5">
@@ -275,7 +284,7 @@ interface RowProps {
   onDelete: () => void
 }
 
-function RequestRow({ request, active, onDelete }: RowProps) {
+function RequestRow({ request, active, onDelete }: RowProps): ReactElement {
   const methodLabel = methodShortLabel(request.method)
   const isPending = useIsPending(request.id)
   return (

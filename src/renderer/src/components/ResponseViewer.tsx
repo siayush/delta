@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactElement } from 'react'
 import {
   Camera,
   Check,
@@ -33,7 +33,7 @@ interface Props {
 
 type Tab = 'response' | 'diff' | 'snapshots'
 
-export function ResponseViewer({ requestId }: Props) {
+export function ResponseViewer({ requestId }: Props): ReactElement {
   const response = useResponseStore((s) => s.responses[requestId])
   const { data: snapshots = [] } = useSnapshots(requestId)
   const createSnapshot = useCreateSnapshot(requestId)
@@ -51,8 +51,10 @@ export function ResponseViewer({ requestId }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const baseline = snapshots.find((s) => s.isBaseline) ?? null
-  const labelFor = (s: { label?: string | null; isBaseline?: boolean }, fallback: string): string =>
-    s.isBaseline ? 'baseline' : s.label?.trim() || fallback
+  const labelFor = (
+    s: { label?: string | null; isBaseline?: boolean },
+    fallback: string
+  ): string => (s.isBaseline ? 'baseline' : s.label?.trim() || fallback)
 
   const { diffPair, leftValue, rightValue } = useMemo(() => {
     type Source = { data: unknown; label: string; value: string }
@@ -64,17 +66,21 @@ export function ResponseViewer({ requestId }: Props) {
     }
     const autoLeft = (): Source | null => {
       const def = baseline ?? snapshots[0]
-      if (def) return { data: def.response.data, label: labelFor(def, 'latest snapshot'), value: def.id }
+      if (def)
+        return { data: def.response.data, label: labelFor(def, 'latest snapshot'), value: def.id }
       return responseSource()
     }
     const autoRight = (leftValueLocal: string | null): Source | null => {
       if (response) return responseSource()
       const other = snapshots.find((s) => s.id !== leftValueLocal) ?? snapshots[0] ?? null
-      return other ? { data: other.response.data, label: labelFor(other, 'latest snapshot'), value: other.id } : null
+      return other
+        ? { data: other.response.data, label: labelFor(other, 'latest snapshot'), value: other.id }
+        : null
     }
 
     const left =
-      (leftId === 'response' ? responseSource() : leftId ? snapshotSource(leftId) : null) ?? autoLeft()
+      (leftId === 'response' ? responseSource() : leftId ? snapshotSource(leftId) : null) ??
+      autoLeft()
     const right =
       (rightId === 'response' ? responseSource() : rightId ? snapshotSource(rightId) : null) ??
       autoRight(left?.value ?? null)
@@ -143,9 +149,7 @@ export function ResponseViewer({ requestId }: Props) {
             <span
               className={cn(
                 response.status >= 400 && 'text-(--color-danger)',
-                response.status >= 200 &&
-                  response.status < 300 &&
-                  'text-(--color-success)'
+                response.status >= 200 && response.status < 300 && 'text-(--color-success)'
               )}
             >
               {response.status} {response.statusText}
@@ -199,7 +203,9 @@ export function ResponseViewer({ requestId }: Props) {
             <div className="text-(--color-fg-muted) text-[13px] font-sans space-y-2">
               <p>Nothing to diff yet.</p>
               {!response && snapshots.length === 0 && (
-                <p>Send a request, then save the result as a snapshot. Send again to diff the two.</p>
+                <p>
+                  Send a request, then save the result as a snapshot. Send again to diff the two.
+                </p>
               )}
               {response && snapshots.length === 0 && (
                 <p>Save the current response as a snapshot, then send the request again.</p>
@@ -479,7 +485,7 @@ function TabButton({
   onClick: () => void
   disabled?: boolean
   title?: string
-}) {
+}): ReactElement {
   return (
     <button
       onClick={onClick}
@@ -496,4 +502,3 @@ function TabButton({
     </button>
   )
 }
-

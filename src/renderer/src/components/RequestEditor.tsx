@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import type {
   ApiRequest,
@@ -26,7 +26,7 @@ interface Props {
   request: ApiRequest
 }
 
-export function RequestEditor({ request }: Props) {
+export function RequestEditor({ request }: Props): ReactElement {
   const ensureDraft = useDraftStore((s) => s.ensure)
   const patchDraft = useDraftStore((s) => s.patch)
   const local = useDraftStore((s) => s.byRequestId[request.id]) ?? request
@@ -241,9 +241,7 @@ export function RequestEditor({ request }: Props) {
             placeholder='{"key": "value"}'
           />
         )}
-        {tab === 'Auth' && (
-          <AuthEditor auth={local.auth} onChange={(auth) => patch({ auth })} />
-        )}
+        {tab === 'Auth' && <AuthEditor auth={local.auth} onChange={(auth) => patch({ auth })} />}
       </div>
     </div>
   )
@@ -261,7 +259,7 @@ function AuthEditor({
 }: {
   auth: RequestAuth
   onChange: (next: RequestAuth) => void
-}) {
+}): ReactElement {
   const set = (patch: Partial<RequestAuth>): void => onChange({ ...auth, ...patch })
 
   return (
@@ -291,8 +289,7 @@ function AuthEditor({
 
       {auth.type === 'none' && (
         <div className="text-[12px] text-(--color-fg-muted)">
-          No authorization will be sent. Switch to Bearer or Basic to add an Authorization
-          header.
+          No authorization will be sent. Switch to Bearer or Basic to add an Authorization header.
         </div>
       )}
 
@@ -391,10 +388,7 @@ function decomposeUrl(full: string): { base: string; params: KvEntry[] } {
   return { base, params }
 }
 
-function entriesToRecord(
-  entries: KvEntry[],
-  env: Environment | null
-): Record<string, string> {
+function entriesToRecord(entries: KvEntry[], env: Environment | null): Record<string, string> {
   const out: Record<string, string> = {}
   for (const e of entries) {
     if (!e.enabled) continue
@@ -439,7 +433,7 @@ const rowsMatch = (rows: Row[], entries: KvEntry[]): boolean => {
   )
 }
 
-function KeyValueEditor({ entries, onChange, placeholder }: KvProps) {
+function KeyValueEditor({ entries, onChange, placeholder }: KvProps): ReactElement {
   const [rows, setRows] = useState<Row[]>(() => entriesToRows(entries))
   const pendingFocusRef = useRef<string | null>(null)
 

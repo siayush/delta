@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { FileDiff } from '@pierre/diffs/react'
 import { parseDiffFromFile } from '@pierre/diffs'
 import { Maximize2, Minimize2 } from 'lucide-react'
@@ -23,7 +23,7 @@ interface Props {
   headerSlot?: React.ReactNode
 }
 
-export function JsonDiffView({ before, after, headerSlot }: Props) {
+export function JsonDiffView({ before, after, headerSlot }: Props): ReactElement {
   const [view, setView] = useState<'unified' | 'split'>('split')
   const [fullscreen, setFullscreen] = useState(false)
 

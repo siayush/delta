@@ -83,7 +83,6 @@ interface EditorRenderState {
   lines: EditorRenderLine[]
 }
 
-
 export function CompareJsonPage(): ReactElement {
   const [left, setLeft] = useState('')
   const [right, setRight] = useState('')

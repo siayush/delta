@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactElement } from 'react'
 import { ChevronDown, Layers, Plus, Trash2 } from 'lucide-react'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
@@ -11,7 +11,7 @@ import {
 import { useUiStore } from '../stores/ui'
 import { cn } from '../lib/utils'
 
-export function EnvironmentManager() {
+export function EnvironmentManager(): ReactElement {
   const { data: envs = [] } = useEnvironments()
   const create = useCreateEnvironment()
   const update = useUpdateEnvironment()
@@ -25,12 +25,7 @@ export function EnvironmentManager() {
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen((o) => !o)}
-        title="Environment"
-      >
+      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)} title="Environment">
         {active ? (
           <>
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: active.color }} />
@@ -127,11 +122,24 @@ export function EnvironmentManager() {
 interface EditProps {
   envId: string
   onClose: () => void
-  onSave: (id: string, patch: Partial<{ name: string; baseUrl: string; color: string; variables: Record<string, string> }>) => void
+  onSave: (
+    id: string,
+    patch: Partial<{
+      name: string
+      baseUrl: string
+      color: string
+      variables: Record<string, string>
+    }>
+  ) => void
   onDelete: (id: string) => void
 }
 
-function EnvironmentEditModal({ envId, onClose, onSave, onDelete }: EditProps) {
+function EnvironmentEditModal({
+  envId,
+  onClose,
+  onSave,
+  onDelete
+}: EditProps): ReactElement | null {
   const { data: envs = [] } = useEnvironments()
   const env = envs.find((e) => e.id === envId)
   if (!env) return null
@@ -156,7 +164,10 @@ function EnvironmentEditModal({ envId, onClose, onSave, onDelete }: EditProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onClose}
+    >
       <div
         className="w-[480px] rounded-xl border border-(--color-border) bg-(--color-bg-elev) shadow-2xl"
         onClick={(e) => e.stopPropagation()}

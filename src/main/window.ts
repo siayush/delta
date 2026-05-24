@@ -62,7 +62,6 @@ export function createMainWindow(): BrowserWindow {
   // don't lose them if devtools isn't open.
   mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
     if (level >= 2) {
-      // eslint-disable-next-line no-console
       console.warn(`[renderer] ${source}:${line} ${message}`)
     }
   })

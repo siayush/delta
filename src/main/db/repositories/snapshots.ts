@@ -27,9 +27,10 @@ function rowToSnapshot(r: Row): Snapshot {
 export const snapshotsRepo = {
   listForRequest(requestId: string): Snapshot[] {
     return getDb()
-      .prepare<[string], Row>(
-        `SELECT * FROM snapshots WHERE request_id = ? ORDER BY created_at DESC`
-      )
+      .prepare<
+        [string],
+        Row
+      >(`SELECT * FROM snapshots WHERE request_id = ? ORDER BY created_at DESC`)
       .all(requestId)
       .map(rowToSnapshot)
   },

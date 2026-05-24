@@ -44,9 +44,7 @@ function rowToRequest(r: Row): ApiRequest {
 
 export const requestsRepo = {
   list(): ApiRequest[] {
-    const rows = getDb()
-      .prepare<[], Row>(`SELECT * FROM requests ORDER BY updated_at DESC`)
-      .all()
+    const rows = getDb().prepare<[], Row>(`SELECT * FROM requests ORDER BY updated_at DESC`).all()
     return rows.map(rowToRequest)
   },
 

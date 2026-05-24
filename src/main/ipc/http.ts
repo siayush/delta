@@ -26,7 +26,9 @@ function parseHeaders(headersIn: Record<string, string | string[]>): Record<stri
   return out
 }
 
-async function readBody(response: Electron.IncomingMessage): Promise<{ raw: string; size: number }> {
+async function readBody(
+  response: Electron.IncomingMessage
+): Promise<{ raw: string; size: number }> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let size = 0

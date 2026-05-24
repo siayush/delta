@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { File } from '@pierre/diffs/react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 
@@ -8,13 +8,10 @@ interface Props {
   data: unknown
 }
 
-export function JsonView({ data }: Props) {
+export function JsonView({ data }: Props): ReactElement {
   const [fullscreen, setFullscreen] = useState(false)
 
-  const file = useMemo(
-    () => ({ name: 'response.json', contents: stringify(data) }),
-    [data]
-  )
+  const file = useMemo(() => ({ name: 'response.json', contents: stringify(data) }), [data])
 
   useEffect(() => {
     if (!fullscreen) return

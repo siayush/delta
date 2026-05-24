@@ -66,9 +66,7 @@ export function ImportCurlModal({ onClose, onImport }: Props): ReactElement {
             className="w-full h-56 resize-none rounded-md border border-(--color-border) bg-(--color-bg) px-3 py-2 text-[12px] font-mono outline-none placeholder:text-(--color-fg-subtle) focus:border-(--color-accent)"
           />
           {error && (
-            <div className="text-[12px] text-(--color-danger) font-mono break-words">
-              {error}
-            </div>
+            <div className="text-[12px] text-(--color-danger) font-mono break-words">{error}</div>
           )}
         </div>
         <div className="p-3 border-t border-(--color-border) flex justify-end gap-2">

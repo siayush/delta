@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import type { UpdaterEvent } from '@shared/ipc'
 import { api } from '../lib/api'
 import { Button } from './ui/Button'
 
-export function UpdaterBanner() {
+export function UpdaterBanner(): ReactElement | null {
   const [event, setEvent] = useState<UpdaterEvent | null>(null)
 
   useEffect(() => {
