@@ -1,9 +1,8 @@
-import { createRoute } from '@tanstack/react-router'
-import { FolderPage } from './folders.$folderId.component'
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { rootRoute } from './__root'
 
 export const folderRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/folders/$folderId',
-  component: FolderPage
+  component: lazyRouteComponent(() => import('./folders.$folderId.component'), 'FolderPage')
 })

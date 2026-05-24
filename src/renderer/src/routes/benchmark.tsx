@@ -1,9 +1,8 @@
-import { createRoute } from '@tanstack/react-router'
-import { BenchmarkPage } from '../components/BenchmarkPage'
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { rootRoute } from './__root'
 
 export const benchmarkRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings/benchmark',
-  component: BenchmarkPage
+  component: lazyRouteComponent(() => import('../components/BenchmarkPage'), 'BenchmarkPage')
 })

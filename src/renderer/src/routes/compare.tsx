@@ -1,9 +1,8 @@
-import { createRoute } from '@tanstack/react-router'
-import { CompareJsonPage } from '../components/CompareJsonPage'
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { rootRoute } from './__root'
 
 export const compareRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/compare',
-  component: CompareJsonPage
+  component: lazyRouteComponent(() => import('../components/CompareJsonPage'), 'CompareJsonPage')
 })
