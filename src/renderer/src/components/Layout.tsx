@@ -32,7 +32,7 @@ export function Layout({ children }: Props): ReactElement {
       | string
       | undefined) ?? null
   const activeRequest = requests.find((r) => r.id === activeRequestId) ?? null
-  const onSettings = matches.some((m) => m.routeId === '/settings')
+  const onSettings = matches.some((m) => m.routeId.startsWith('/settings'))
 
   const handleNewRequest = async (): Promise<void> => {
     const req = await createRequest.mutateAsync({

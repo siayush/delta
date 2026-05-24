@@ -1,6 +1,6 @@
 import { type ReactElement, useLayoutEffect, useRef, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { Play, Square, Trash2 } from 'lucide-react'
+import { Gauge, Play, Square, Trash2 } from 'lucide-react'
 import { parseDiffFromFile } from '@pierre/diffs'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
@@ -31,8 +31,8 @@ const SIZES: Array<{ key: SizeKey; recordCount: number }> = [
 ]
 
 // Diff parses the full file pair in memory, so above this size we skip it as
-// a final safety net. Render is virtualized via CodeView, so even at 5 MB
-// only the visible rows are mounted — no need for a render cap.
+// a final safety net. Render is virtualized by Pierre's File component, so
+// even at 5 MB only the visible rows are mounted — no need for a render cap.
 const MAX_DIFF_BYTES = 20_000_000
 
 type Measure = number | 'skipped'
@@ -130,73 +130,80 @@ export function BenchmarkPage(): ReactElement {
 
   return (
     <div className="flex-1 overflow-auto">
-      <div className="max-w-4xl mx-auto px-6 py-7">
-        <div className="flex items-baseline justify-between mb-1">
-          <h2 className="text-[18px] font-semibold">Benchmark</h2>
-          <span className="text-[11px] text-(--color-fg-subtle) font-mono">
-            measure request, parse, diff & render
-          </span>
-        </div>
-        <p className="text-[12.5px] text-(--color-fg-muted) mb-4">
-          Generates synthetic JSON payloads at the selected sizes, then measures how long Delta
-          takes to stringify, parse, diff, and render them. Optionally sends each payload to a URL
-          to measure end-to-end HTTP roundtrip. Render uses Pierre&apos;s virtualized CodeView, so
-          only visible rows are mounted. Diff compute is skipped above 20&nbsp;MB.
-        </p>
+      <div className="max-w-3xl mx-auto px-6 py-7">
+        <h2 className="text-[11px] font-semibold tracking-wider uppercase text-(--color-fg-muted) mb-3">
+          Benchmark
+        </h2>
 
-        <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elev) p-4 mb-4">
-          <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold block mb-1.5">
-            HTTP echo URL (optional)
-          </label>
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://httpbin.org/anything"
-            disabled={running}
-          />
-          <p className="text-[11px] text-(--color-fg-subtle) mt-1.5">
-            Leave blank to skip the HTTP test. Endpoint must accept a POST with a JSON body.
-          </p>
-
-          <div className="mt-4">
-            <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold block mb-1.5">
-              Sizes
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {SIZES.map((s) => (
-                <button
-                  key={s.key}
-                  disabled={running}
-                  onClick={() => setSelected((sel) => ({ ...sel, [s.key]: !sel[s.key] }))}
-                  className={`h-7 px-2.5 rounded-md text-[12px] border ${
-                    selected[s.key]
-                      ? 'bg-(--color-accent) text-(--color-accent-fg) border-transparent'
-                      : 'border-(--color-border) text-(--color-fg-muted)'
-                  } disabled:opacity-50`}
-                >
-                  {s.key}
-                </button>
-              ))}
+        <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elev) divide-y divide-(--color-border) mb-4">
+          <div className="p-5 flex items-start gap-4">
+            <Gauge className="h-12 w-12 shrink-0 text-(--color-fg-muted)" strokeWidth={1.25} />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-semibold">Benchmark</h3>
+              <p className="text-[12.5px] text-(--color-fg-muted) mt-1">
+                Generates synthetic JSON payloads at the selected sizes, then measures how long
+                Delta takes to stringify, parse, diff, and render them. Optionally sends each
+                payload to a URL to measure end-to-end HTTP roundtrip. Render uses Pierre&apos;s
+                virtualized File component, so only visible rows are mounted. Diff compute is
+                skipped above 20&nbsp;MB.
+              </p>
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2">
-            <Button onClick={handleRun} disabled={running}>
-              <Play className="h-3.5 w-3.5" />
-              {running ? 'Running…' : 'Run benchmark'}
-            </Button>
-            {running && (
-              <Button variant="danger" onClick={handleCancel}>
-                <Square className="h-3.5 w-3.5" /> Cancel
+          <div className="p-5">
+            <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold block mb-1.5">
+              HTTP echo URL (optional)
+            </label>
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://httpbin.org/anything"
+              disabled={running}
+            />
+            <p className="text-[11px] text-(--color-fg-subtle) mt-1.5">
+              Leave blank to skip the HTTP test. Endpoint must accept a POST with a JSON body.
+            </p>
+
+            <div className="mt-4">
+              <label className="text-[11px] uppercase tracking-wider text-(--color-fg-subtle) font-semibold block mb-1.5">
+                Sizes
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {SIZES.map((s) => (
+                  <button
+                    key={s.key}
+                    disabled={running}
+                    onClick={() => setSelected((sel) => ({ ...sel, [s.key]: !sel[s.key] }))}
+                    className={`h-7 px-2.5 rounded-md text-[12px] border ${
+                      selected[s.key]
+                        ? 'bg-(--color-accent) text-(--color-accent-fg) border-transparent'
+                        : 'border-(--color-border) text-(--color-fg-muted)'
+                    } disabled:opacity-50`}
+                  >
+                    {s.key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <Button onClick={handleRun} disabled={running}>
+                <Play className="h-3.5 w-3.5" />
+                {running ? 'Running…' : 'Run benchmark'}
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={() => setRows([])}
-              disabled={running || rows.length === 0}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Clear
-            </Button>
+              {running && (
+                <Button variant="danger" onClick={handleCancel}>
+                  <Square className="h-3.5 w-3.5" /> Cancel
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                onClick={() => setRows([])}
+                disabled={running || rows.length === 0}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear
+              </Button>
+            </div>
           </div>
         </div>
 

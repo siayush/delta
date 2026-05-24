@@ -4,6 +4,6 @@ import { rootRoute } from './__root'
 
 export const benchmarkRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/benchmark',
+  path: '/settings/benchmark',
   component: BenchmarkPage
 })
